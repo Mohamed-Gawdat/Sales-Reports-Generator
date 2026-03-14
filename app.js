@@ -73,7 +73,7 @@ function loadInputs() {
   if (type === 'bm') {
     div.innerHTML =
       section('Voice Lines',
-        field('voiceDailyAch', 'Daily Ach Today', '0') +
+        field('voiceDailyAch', 'Daily Ach', '0') +
         field('voiceTotalMTD', 'Total MTD Ach', '0') +
         field('drAch', 'DR Achievement', '0'), false) +
       section('Postpaid',
