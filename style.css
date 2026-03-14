@@ -385,6 +385,13 @@ input:hover:not(:focus) {
 }
 .icon-btn:active { transform: scale(0.95); }
 
+.whatsapp-btn { color: #25d366; border-color: rgba(37,211,102,0.25); }
+.whatsapp-btn:hover {
+  background: rgba(37,211,102,0.12) !important;
+  color: #25d366 !important;
+  border-color: rgba(37,211,102,0.5) !important;
+}
+
 textarea#output {
   display: block;
   width: 100%;
