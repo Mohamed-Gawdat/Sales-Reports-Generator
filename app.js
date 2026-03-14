@@ -254,14 +254,12 @@ function copyMessage() {
   setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-/* ---- Share ---- */
+/* ---- Share to WhatsApp ---- */
 function shareMessage() {
   const text = document.getElementById('output').value;
-  if (navigator.share) {
-    navigator.share({ text });
-  } else {
-    alert('Sharing not supported on this device!');
-  }
+  if (!text.trim()) return;
+  const encoded = encodeURIComponent(text);
+  window.open('https://wa.me/?text=' + encoded, '_blank');
 }
 
 /* ---- Init ---- */
