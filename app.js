@@ -74,23 +74,28 @@ function loadInputs() {
     div.innerHTML =
       section('Voice Lines',
         field('voiceDailyAch', 'Daily Ach', '0') +
-        field('voiceTotalMTD', 'Total MTD Ach', '0') +
-        field('drAch', 'DR Achievement', '0'), false) +
+        field('drAch', 'DR Achievement', '0') +
+        staticField('MTD Target', '585') +
+        field('voiceTotalMTD', 'Total MTD Ach', '0'), false) +
       section('Postpaid',
         field('postDaily', 'Daily Ach', '0') +
         field('emerald', 'Emerald', '0') +
         field('primoPost', 'Primo', '0') +
+        staticField('MTD Target', '3') +
         field('postTotalMTD', 'Total MTD Ach', '0')) +
       section('Connectivity',
         field('connDaily', 'Daily Ach', '0') +
         field('ehome', 'E-Home', '0') +
         field('adsl', 'ADSL', '0') +
+        staticField('MTD Target', '52') +
         field('connTotalMTD', 'Total MTD Ach', '0')) +
       section('Cash Service',
         field('cashDaily', 'Daily Ach', '0') +
+        staticField('MTD Target', '494') +
         field('cashTotalMTD', 'Total MTD Ach', '0')) +
       section('MNP',
         field('mnpDaily', 'Daily Ach', '0') +
+        staticField('MTD Target', '28') +
         field('mnpMTD', 'MTD Ach', '0')) +
       section('Final',
         field('trx', 'Total TRX', '0'), true);
