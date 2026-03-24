@@ -41,15 +41,9 @@
     <div class="shift-selector">
       <p class="selector-label">Select shift type</p>
       <div class="tab-group" id="tabGroup">
-        <button class="tab active" data-value="am" onclick="selectTab(this,'am')">
-          AM Shift
-        </button>
-        <button class="tab" data-value="bm" onclick="selectTab(this,'bm')">
-          PM Shift
-        </button>
-        <button class="tab" data-value="closing" onclick="selectTab(this,'closing')">
-          Closing
-        </button>
+        <button class="tab active" data-value="am" onclick="selectTab(this,'am')">AM Shift</button>
+        <button class="tab" data-value="pm" onclick="selectTab(this,'pm')">PM Shift</button>
+        <button class="tab" data-value="closing" onclick="selectTab(this,'closing')">Closing</button>
         <div class="tab-slider" id="tabSlider"></div>
       </div>
       <input type="hidden" id="shiftType" value="am">
@@ -105,5 +99,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-
-
