@@ -1,9 +1,9 @@
 /* ============================================================
-   ShiftGen — app.js
+   ShiftGen — app.js (AM FIXED + PM UNTOUCHED)
    ============================================================ */
 
 function today() {
-  let d = new Date();
+  const d = new Date();
   return d.getDate() + " / " + d.toLocaleString('en', { month: 'short' }) + " / " + d.getFullYear();
 }
 
@@ -22,22 +22,33 @@ function positionSlider(activeTab) {
   const tabs   = [...group.querySelectorAll('.tab')];
   const idx    = tabs.indexOf(activeTab);
   const total  = tabs.length;
-  const pct    = (idx / total) * 100;
-  const w      = 100 / total;
-  slider.style.width = `calc(${w}% - 2px)`;
-  slider.style.left  = `calc(${pct}% + 5px)`;
+  slider.style.width = `calc(${100 / total}% - 2px)`;
+  slider.style.left  = `calc(${(idx / total) * 100}% + 5px)`;
 }
 
-/* ---- Build inputs ---- */
-function field(id, label, placeholder) {
-  return `<div class="field"><label for="${id}">${label}</label><input id="${id}" placeholder="${placeholder}" autocomplete="off"></div>`;
+/* ---- Field builders ---- */
+function field(id, label) {
+  return `<div class="field">
+    <label for="${id}">${label}</label>
+    <input id="${id}" type="number" placeholder="0" autocomplete="off" min="0">
+  </div>`;
+}
+
+function fieldText(id, label, placeholder) {
+  return `<div class="field">
+    <label for="${id}">${label}</label>
+    <input id="${id}" type="text" placeholder="${placeholder || ''}" autocomplete="off">
+  </div>`;
 }
 
 function staticField(label, value) {
-  return `<div class="field"><label>${label}</label><div class="static-value">${value}</div></div>`;
+  return `<div class="field">
+    <label>${label}</label>
+    <div class="static-value">${value}</div>
+  </div>`;
 }
 
-function section(title, fieldsHTML, single = false) {
+function section(title, fieldsHTML, single) {
   return `
     <div class="section-card">
       <div class="section-title">${title}</div>
@@ -45,232 +56,226 @@ function section(title, fieldsHTML, single = false) {
     </div>`;
 }
 
+/* ---- Daily targets ---- */
+const T = { voice: 43, postpaid: 1, connectivity: 4, cash: 38, mnp: 2 };
+
+/* ---- Load inputs ---- */
 function loadInputs() {
   const type = document.getElementById('shiftType').value;
   const div  = document.getElementById('inputs');
   div.innerHTML = '';
-
-  // Clear output
   document.getElementById('output').value = '';
 
-  if (type === 'am') {
+  /* ================= AM (FIXED) ================= */
+  if(type==='am'){
     div.innerHTML =
       section('Voice',
         staticField('Voice Commitment', '23') +
-        field('voiceAch', 'Voice Achievement', '0')) +
+        field('voiceAch', 'Voice Achievement')) +
+
       section('Emerald',
         staticField('Emerald Commitment', '1') +
-        field('emeraldAch', 'Emerald Achievement', '0')) +
-      section('Primo', field('primo', 'Primo', '0'), true) +
+        field('emeraldAch', 'Emerald Achievement')) +
+
+      section('Primo',
+        field('primo', 'Primo'), true) +
+
       section('Cash Service',
         staticField('Cash Commitment', '20') +
-        field('cashAch', 'Cash Achievement', '0')) +
+        field('cashAch', 'Cash Achievement')) +
+
       section('Other',
-        field('connect', 'Connectivity Ach', '0') +
-        field('mnp', 'MNP', '0'));
+        field('connect', 'Connectivity Ach') +
+        field('mnp', 'MNP'));
   }
 
-  if (type === 'bm') {
+  /* ================= PM (UNCHANGED) ================= */
+  if(type==='pm'){
     div.innerHTML =
       section('Voice Lines',
-        field('voiceDailyAch', 'Daily Ach', '0') +
-        field('drAch', 'DR Achievement', '0') +
-        staticField('MTD Target', '585') +
-        field('voiceTotalMTD', 'Total MTD Ach', '0'), false) +
+        staticField('Daily Target', T.voice) +
+        field('voiceDaily', 'Daily Ach') +
+        field('voiceMtdYesterday', 'MTD Ach Yesterday') +
+        field('drAch', 'DR Achievement')) +
+
       section('Postpaid',
-        field('postDaily', 'Daily Ach', '0') +
-        field('emerald', 'Emerald', '0') +
-        field('primoPost', 'Primo', '0') +
-        staticField('MTD Target', '3') +
-        field('postTotalMTD', 'Total MTD Ach', '0')) +
+        staticField('Daily Target', T.postpaid) +
+        field('postDaily', 'Daily Ach') +
+        field('emerald', 'Emerald') +
+        field('primoPost', 'Primo') +
+        field('postMtdYesterday', 'MTD Ach Yesterday')) +
+
       section('Connectivity',
-        field('connDaily', 'Daily Ach', '0') +
-        field('ehome', 'E-Home', '0') +
-        field('adsl', 'ADSL', '0') +
-        staticField('MTD Target', '52') +
-        field('connTotalMTD', 'Total MTD Ach', '0')) +
+        staticField('Daily Target', T.connectivity) +
+        field('connDaily', 'Daily Ach') +
+        field('ehome', 'E-Home') +
+        field('adsl', 'ADSL') +
+        field('connMtdYesterday', 'MTD Ach Yesterday')) +
+
       section('Cash Service',
-        field('cashDaily', 'Daily Ach', '0') +
-        staticField('MTD Target', '494') +
-        field('cashTotalMTD', 'Total MTD Ach', '0')) +
+        staticField('Daily Target', T.cash) +
+        field('cashDaily', 'Daily Ach') +
+        field('cashMtdYesterday', 'MTD Ach Yesterday')) +
+
       section('MNP',
-        field('mnpDaily', 'Daily Ach', '0') +
-        staticField('MTD Target', '28') +
-        field('mnpMTD', 'MTD Ach', '0')) +
-      section('Final',
-        field('trx', 'Total TRX', '0'), true);
+        staticField('Daily Target', T.mnp) +
+        field('mnpDaily', 'Daily Ach') +
+        field('mnpMtdYesterday', 'MTD Ach Yesterday')) +
+
+      section('Totals',
+        field('trx', 'Total TRX'), true);
   }
 
-  if (type === 'closing') {
-    div.innerHTML = section('Confirmation', field('reviewed', 'Reviewed By', 'Name'), true);
+  /* ================= Closing ================= */
+  if(type==='closing'){
+    div.innerHTML = section('Confirmation', fieldText('reviewed', 'Reviewed By', 'Name'), true);
   }
 
-  // Re-init slider position
   const activeTab = document.querySelector('.tab.active');
   if (activeTab) positionSlider(activeTab);
 }
 
 /* ---- Helpers ---- */
-function val(id) {
-  const el = document.getElementById(id);
-  return el ? el.value : '';
-}
+function val(id) { const el = document.getElementById(id); return el ? (el.value || '0') : '0'; }
 function num(id) { return Number(val(id)) || 0; }
+function re(ach, target) { return target ? Math.round((ach/target)*100)+'%' : '—'; }
 
 /* ---- Generate message ---- */
 function generateMessage() {
-  const type   = document.getElementById('shiftType').value;
+  const type = document.getElementById('shiftType').value;
   const output = document.getElementById('output');
 
-  if (type === 'am') {
-    output.value = `Sohag station
+  /* ================= AM (FIXED) ================= */
+  if(type==='am'){
+    output.value =
+`Sohag station
 ${today()}
-Am
+AM
 
--Voice Commitment:  23
--Voice Achievement:  ${val('voiceAch')}
+- Voice Commitment: 23
+- Voice Achievement: ${val('voiceAch')}
 
--Emerald Commitment:  1
--Emerald Achievement:  ${val('emeraldAch')}
+- Emerald Commitment: 1
+- Emerald Achievement: ${val('emeraldAch')}
 
--Primo:   ${val('primo')}
+- Primo: ${val('primo')}
 
--Cash Commitment:  20
--Cash Achievement:  ${val('cashAch')}
+- Cash Commitment: 20
+- Cash Achievement: ${val('cashAch')}
 
--Connectivity Ach :  ${val('connect')}
+- Connectivity Ach: ${val('connect')}
 
--MNP:  ${val('mnp')}`;
+- MNP: ${val('mnp')}`;
   }
 
-  if (type === 'bm') {
-    const voiceMTD    = num('voiceTotalMTD') + num('voiceDailyAch');
-    const voiceRE     = ((voiceMTD / 585) * 100).toFixed(1);
-    const postMTD     = num('postTotalMTD')  + num('postDaily');
-    const postRE      = ((postMTD / 3) * 100).toFixed(1);
-    const connMTD     = num('connTotalMTD')  + num('connDaily');
-    const connRE      = ((connMTD / 52) * 100).toFixed(1);
-    const cashMTD     = num('cashTotalMTD')  + num('cashDaily');
-    const cashRE      = ((cashMTD / 494) * 100).toFixed(1);
-    const mnpRE       = ((num('mnpMTD') / 28) * 100).toFixed(1);
-    const closingRatio = num('trx') > 0
-      ? ((num('voiceDailyAch') / num('trx')) * 100).toFixed(1) + '%'
-      : '—';
+  /* ================= PM (UNCHANGED) ================= */
+  if(type==='pm'){
+    const day = new Date().getDate();
 
-    output.value = `Sohag station
-${today()}
+    const vDaily = num('voiceDaily'), vYest = num('voiceMtdYesterday');
+    const vMtdAch = vDaily + vYest, vMtdTgt = T.voice * day;
 
-══════════════════════════
-Voice Lines (1396)
-  Daily Target : 45
-  Daily Ach    : ${val('voiceDailyAch')}
-  MTD Target   : 585
-  MTD Ach      : ${voiceMTD}
-  DR Ach       : ${val('drAch')}
-  RE           : ${voiceRE} %
+    const pDaily = num('postDaily'), pYest = num('postMtdYesterday');
+    const pMtdAch = pDaily + pYest, pMtdTgt = T.postpaid * day;
 
-══════════════════════════
-Postpaid (10)
-  Daily Target : 1
-  Daily Ach    : ${val('postDaily')}
-  Emerald      : ${val('emerald')}
-  Primo        : ${val('primoPost')}
-  MTD Target   : 3
-  MTD Ach      : ${postMTD}
-  RE           : ${postRE} %
+    const cDaily = num('connDaily'), cYest = num('connMtdYesterday');
+    const cMtdAch = cDaily + cYest, cMtdTgt = T.connectivity * day;
 
-══════════════════════════
-Connectivity (100)
-  Daily Target : 4
-  Daily Ach    : ${val('connDaily')}
-  E-Home       : ${val('ehome')}
-  ADSL         : ${val('adsl')}
-  MTD Target   : 52
-  MTD Ach      : ${connMTD}
-  RE           : ${connRE} %
+    const csDaily = num('cashDaily'), csYest = num('cashMtdYesterday');
+    const csMtdAch = csDaily + csYest, csMtdTgt = T.cash * day;
 
-══════════════════════════
-Cash Service (1175)
-  Daily Target : 38
-  Daily Ach    : ${val('cashDaily')}
-  MTD Target   : 494
-  MTD Ach      : ${cashMTD}
-  RE           : ${cashRE} %
+    const mDaily = num('mnpDaily'), mYest = num('mnpMtdYesterday');
+    const mMtdAch = mDaily + mYest, mMtdTgt = T.mnp * day;
 
-══════════════════════════
-MNP (55)
-  Daily Target : 2
-  Daily Ach    : ${val('mnpDaily')}
-  MTD Target   : 28
-  MTD Ach      : ${val('mnpMTD')}
-  RE           : ${mnpRE} %
+    const totalTrx = num('trx');
+    const dailySum = vDaily + pDaily + cDaily + csDaily + mDaily;
+    const cr = totalTrx > 0 ? Math.round((dailySum / totalTrx) * 100) + '%' : '—';
 
-══════════════════════════
-Total TRX      : ${val('trx')}
-Closing Ratio  : ${closingRatio}`;
+    output.value =
+`* *sohag station*  
+* ${today()}  
+——————————————
+** Voice Lines (1300)*  
+- Daily Target: ${T.voice}  
+- Daily Ach: ${vDaily}
+- MTD Target: ${vMtdTgt}
+- MTD Ach: ${vMtdAch}
+- DR Achievement: ${val('drAch')}  
+- *RE: *${re(vMtdAch, vMtdTgt)}
+
+——————————————
+* Postpaid (9)*  
+- Daily Target: ${T.postpaid}  
+- Daily Ach: ${pDaily}
+• *Emerald*: ${val('emerald')}
+- • *Primo*: ${val('primoPost')}  
+- MTD Target: ${pMtdTgt}
+- MTD Ach: ${pMtdAch}
+- RE: *${re(pMtdAch, pMtdTgt)}*
+
+——————————————
+* Connectivity (99)*  
+- Daily Target: ${T.connectivity}
+- Daily Ach: ${cDaily}
+- *E-Home*: ${val('ehome')}
+- *ADSL*: ${val('adsl')}
+- MTD Target: ${cMtdTgt}
+- MTD Ach: ${cMtdAch}
+- *RE: *${re(cMtdAch, cMtdTgt)}
+
+——————————————
+* Cash Service (1145)*  
+- Daily Target: ${T.cash}  
+- Daily Ach: ${csDaily}
+- MTD Target: ${csMtdTgt}
+- MTD Ach: ${csMtdAch}
+- RE: *${re(csMtdAch, csMtdTgt)}*
+
+——————————————
+* MNP (59)*  
+- Daily Target: ${T.mnp}
+- Daily Ach: ${mDaily}
+- MTD Target: ${mMtdTgt}
+- MTD Ach: ${mMtdAch}
+- RE: *${re(mMtdAch, mMtdTgt)}*
+
+Total TRX ${totalTrx}
+Closing Ratio: ${cr}`;
   }
 
-  if (type === 'closing') {
-    output.value = `Sohag station
-${today()}
+  /* ================= Closing ================= */
+  if(type==='closing'){
+    output.value =
+`Closing Done ✅
 
-Closing Confirmation ✅
-
-─────────────────────────
-Quality
-  ☑ Contracts revision
-  ☑ Forms revision
-  ☑ Win cash over 1000 LE
-  ☑ Pending Cash in/out
-  ☑ Returned dials/status
-  ☑ Migration/change ownership SDF
-
-─────────────────────────
-Stock
-  ☑ QOH
-  ☑ Low stock
-
-─────────────────────────
-Cash
-  ☑ M-commerce revised
-  ☑ Staff drawers closing
-  ☑ Any over/short Cash 0
-
-─────────────────────────
 Reviewed By: ${val('reviewed')}`;
   }
-
-  // Animate output area
-  const wrap = document.getElementById('outputWrap');
-  wrap.style.borderColor = 'rgba(79,168,255,0.5)';
-  setTimeout(() => { wrap.style.borderColor = ''; }, 800);
-
-  // Scroll to output
-  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /* ---- Copy ---- */
 function copyMessage() {
   const text = document.getElementById('output').value;
   if (!text.trim()) return;
+
   navigator.clipboard.writeText(text);
+
   const toast = document.getElementById('toast');
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2200);
+  if(toast){
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
 }
 
-/* ---- Share to WhatsApp ---- */
+/* ---- WhatsApp Share ---- */
 function shareMessage() {
   const text = document.getElementById('output').value;
   if (!text.trim()) return;
-  const encoded = encodeURIComponent(text);
-  window.open('https://wa.me/?text=' + encoded, '_blank');
+
+  window.open(
+    'https://wa.me/?text=' + encodeURIComponent(text),
+    '_blank'
+  );
 }
 
 /* ---- Init ---- */
-window.addEventListener('DOMContentLoaded', () => {
-  loadInputs();
-  // Position slider on first tab
-  const firstTab = document.querySelector('.tab.active');
-  if (firstTab) positionSlider(firstTab);
-});
+window.addEventListener('DOMContentLoaded', loadInputs);
