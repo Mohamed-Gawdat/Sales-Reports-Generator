@@ -1,5 +1,5 @@
 /* ============================================================
-   ShiftGen — app.js (AM FIXED + PM UNTOUCHED)
+   ShiftGen — app.js
    ============================================================ */
 
 function today() {
@@ -48,6 +48,14 @@ function staticField(label, value) {
   </div>`;
 }
 
+/* Editable target field — shows default value, double-click to edit */
+function editableTargetField(id, label, defaultValue) {
+  return `<div class="field">
+    <label for="${id}">${label}</label>
+    <input id="${id}" type="number" value="${defaultValue}" autocomplete="off" min="0" class="editable-target" title="Double-click to edit" readonly ondblclick="makeEditable(this)" onblur="lockEditable(this)">
+  </div>`;
+}
+
 function section(title, fieldsHTML, single) {
   return `
     <div class="section-card">
@@ -56,8 +64,18 @@ function section(title, fieldsHTML, single) {
     </div>`;
 }
 
-/* ---- Daily targets ---- */
-const T = { voice: 43, postpaid: 1, connectivity: 4, cash: 38, mnp: 2 };
+/* ---- Make target editable on double-click ---- */
+function makeEditable(el) {
+  el.removeAttribute('readonly');
+  el.classList.add('editing');
+  el.focus();
+  el.select();
+}
+
+function lockEditable(el) {
+  el.setAttribute('readonly', true);
+  el.classList.remove('editing');
+}
 
 /* ---- Load inputs ---- */
 function loadInputs() {
@@ -66,7 +84,7 @@ function loadInputs() {
   div.innerHTML = '';
   document.getElementById('output').value = '';
 
-  /* ================= AM (FIXED) ================= */
+  /* ================= AM ================= */
   if(type==='am'){
     div.innerHTML =
       section('Voice',
@@ -89,36 +107,36 @@ function loadInputs() {
         field('mnp', 'MNP'));
   }
 
-  /* ================= PM (UNCHANGED) ================= */
+  /* ================= PM ================= */
   if(type==='pm'){
     div.innerHTML =
       section('Voice Lines',
-        staticField('Daily Target', T.voice) +
+        editableTargetField('voiceTarget', 'Daily Target', 45) +
         field('voiceDaily', 'Daily Ach') +
-        field('voiceMtdYesterday', 'MTD Ach Yesterday') +
-        field('drAch', 'DR Achievement')) +
+        field('voiceMtdYesterday', 'MTD Ach Yesterday')) +
 
       section('Postpaid',
-        staticField('Daily Target', T.postpaid) +
+        editableTargetField('postTarget', 'Daily Target', 1) +
         field('postDaily', 'Daily Ach') +
         field('emerald', 'Emerald') +
         field('primoPost', 'Primo') +
         field('postMtdYesterday', 'MTD Ach Yesterday')) +
 
       section('Connectivity',
-        staticField('Daily Target', T.connectivity) +
+        editableTargetField('connTarget', 'Daily Target', 4) +
         field('connDaily', 'Daily Ach') +
         field('ehome', 'E-Home') +
         field('adsl', 'ADSL') +
         field('connMtdYesterday', 'MTD Ach Yesterday')) +
 
       section('Cash Service',
-        staticField('Daily Target', T.cash) +
+        editableTargetField('cashTarget', 'Daily Target', 38) +
+        field('cashRefund', 'Refund') +
         field('cashDaily', 'Daily Ach') +
         field('cashMtdYesterday', 'MTD Ach Yesterday')) +
 
       section('MNP',
-        staticField('Daily Target', T.mnp) +
+        editableTargetField('mnpTarget', 'Daily Target', 2) +
         field('mnpDaily', 'Daily Ach') +
         field('mnpMtdYesterday', 'MTD Ach Yesterday')) +
 
@@ -138,14 +156,14 @@ function loadInputs() {
 /* ---- Helpers ---- */
 function val(id) { const el = document.getElementById(id); return el ? (el.value || '0') : '0'; }
 function num(id) { return Number(val(id)) || 0; }
-function re(ach, target) { return target ? Math.round((ach/target)*100)+'%' : '—'; }
+function re(ach, target) { return target ? Math.round((ach / target) * 100) + '%' : '—'; }
 
 /* ---- Generate message ---- */
 function generateMessage() {
   const type = document.getElementById('shiftType').value;
   const output = document.getElementById('output');
 
-  /* ================= AM (FIXED) ================= */
+  /* ================= AM ================= */
   if(type==='am'){
     output.value =
 `Sohag station
@@ -168,77 +186,95 @@ AM
 - MNP: ${val('mnp')}`;
   }
 
-  /* ================= PM (UNCHANGED) ================= */
+  /* ================= PM ================= */
   if(type==='pm'){
     const day = new Date().getDate();
 
-    const vDaily = num('voiceDaily'), vYest = num('voiceMtdYesterday');
-    const vMtdAch = vDaily + vYest, vMtdTgt = T.voice * day;
+    // ---- Voice ----
+    const vTarget  = num('voiceTarget');
+    const vDaily   = num('voiceDaily');
+    const vYest    = num('voiceMtdYesterday');
+    const vMtdAch  = vDaily + vYest;
+    const vMtdTgt  = vTarget * day;
 
-    const pDaily = num('postDaily'), pYest = num('postMtdYesterday');
-    const pMtdAch = pDaily + pYest, pMtdTgt = T.postpaid * day;
+    // ---- Postpaid ----
+    const pTarget  = num('postTarget');
+    const pDaily   = num('postDaily');
+    const pYest    = num('postMtdYesterday');
+    const pMtdAch  = pDaily + pYest;
+    const pMtdTgt  = Math.min(pTarget * day, 10);
 
-    const cDaily = num('connDaily'), cYest = num('connMtdYesterday');
-    const cMtdAch = cDaily + cYest, cMtdTgt = T.connectivity * day;
+    // ---- Connectivity ----
+    const cTarget  = num('connTarget');
+    const cDaily   = num('connDaily');
+    const cYest    = num('connMtdYesterday');
+    const cMtdAch  = cDaily + cYest;
+    const cMtdTgt  = cTarget * day;
 
-    const csDaily = num('cashDaily'), csYest = num('cashMtdYesterday');
-    const csMtdAch = csDaily + csYest, csMtdTgt = T.cash * day;
+    // ---- Cash Service ----
+    const csTarget = num('cashTarget');
+    const csRefund = num('cashRefund');
+    const csRaw    = num('cashDaily');
+    const csDaily  = csRaw - csRefund;          // Daily Ach = raw - refund
+    const csYest   = num('cashMtdYesterday');
+    const csMtdAch = csRaw + csYest;            // MTD Ach = raw daily + yesterday MTD
+    const csMtdTgt = csTarget * day;
 
-    const mDaily = num('mnpDaily'), mYest = num('mnpMtdYesterday');
-    const mMtdAch = mDaily + mYest, mMtdTgt = T.mnp * day;
+    // ---- MNP ----
+    const mTarget  = num('mnpTarget');
+    const mDaily   = num('mnpDaily');
+    const mYest    = num('mnpMtdYesterday');
+    const mMtdAch  = mDaily + mYest;
+    const mMtdTgt  = mTarget * day;
 
+    // ---- Totals ----
     const totalTrx = num('trx');
-    const dailySum = vDaily + pDaily + cDaily + csDaily + mDaily;
-    const cr = totalTrx > 0 ? Math.round((dailySum / totalTrx) * 100) + '%' : '—';
+    // Closing Ratio = Voice Daily Ach / Total TRX * 100
+    const cr = totalTrx > 0 ? Math.round((vDaily / totalTrx) * 100) + '%' : '—';
 
     output.value =
-`* *sohag station*  
-* ${today()}  
+`sohag station
+${today()}
 ——————————————
-** Voice Lines (1300)*  
-- Daily Target: ${T.voice}  
+Voice Lines (1396)
+- Daily Target: ${vTarget}
 - Daily Ach: ${vDaily}
 - MTD Target: ${vMtdTgt}
 - MTD Ach: ${vMtdAch}
-- DR Achievement: ${val('drAch')}  
-- *RE: *${re(vMtdAch, vMtdTgt)}
-
+- RE: ${re(vMtdAch, vMtdTgt)}
 ——————————————
-* Postpaid (9)*  
-- Daily Target: ${T.postpaid}  
+Postpaid (10)
+- Daily Target: ${pTarget}
 - Daily Ach: ${pDaily}
-• *Emerald*: ${val('emerald')}
-- • *Primo*: ${val('primoPost')}  
+• Emerald: ${val('emerald')}
+• Primo: ${val('primoPost')}
 - MTD Target: ${pMtdTgt}
 - MTD Ach: ${pMtdAch}
-- RE: *${re(pMtdAch, pMtdTgt)}*
-
+- RE: ${re(pMtdAch, pMtdTgt)}
 ——————————————
-* Connectivity (99)*  
-- Daily Target: ${T.connectivity}
+Connectivity (100)
+- Daily Target: ${cTarget}
 - Daily Ach: ${cDaily}
-- *E-Home*: ${val('ehome')}
-- *ADSL*: ${val('adsl')}
+- E-Home: ${val('ehome')}
+- ADSL: ${val('adsl')}
 - MTD Target: ${cMtdTgt}
 - MTD Ach: ${cMtdAch}
-- *RE: *${re(cMtdAch, cMtdTgt)}
-
+- RE: ${re(cMtdAch, cMtdTgt)}
 ——————————————
-* Cash Service (1145)*  
-- Daily Target: ${T.cash}  
-- Daily Ach: ${csDaily}
+Cash Service (1175)
+- Daily Target: ${csTarget}
+- Daily Ach: ${csDaily}${csRefund > 0 ? ' (Refund: ' + csRefund + ')' : ''}
 - MTD Target: ${csMtdTgt}
 - MTD Ach: ${csMtdAch}
-- RE: *${re(csMtdAch, csMtdTgt)}*
-
+- RE: ${re(csMtdAch, csMtdTgt)}
 ——————————————
-* MNP (59)*  
-- Daily Target: ${T.mnp}
+MNP (55)
+- Daily Target: ${mTarget}
 - Daily Ach: ${mDaily}
 - MTD Target: ${mMtdTgt}
 - MTD Ach: ${mMtdAch}
-- RE: *${re(mMtdAch, mMtdTgt)}*
-
+- RE: ${re(mMtdAch, mMtdTgt)}
+——————————————
 Total TRX ${totalTrx}
 Closing Ratio: ${cr}`;
   }
