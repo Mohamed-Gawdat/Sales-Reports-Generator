@@ -88,18 +88,18 @@ function loadInputs() {
   if(type==='am'){
     div.innerHTML =
       section('Voice',
-        staticField('Voice Commitment', '23') +
+        editableTargetField('voiceCommit', 'Voice Commitment', 23) +
         field('voiceAch', 'Voice Achievement')) +
 
       section('Emerald',
-        staticField('Emerald Commitment', '1') +
+        editableTargetField('emeraldCommit', 'Emerald Commitment', 1) +
         field('emeraldAch', 'Emerald Achievement')) +
 
       section('Primo',
         field('primo', 'Primo'), true) +
 
       section('Cash Service',
-        staticField('Cash Commitment', '20') +
+        editableTargetField('cashCommit', 'Cash Commitment', 20) +
         field('cashAch', 'Cash Achievement')) +
 
       section('Other',
@@ -146,7 +146,7 @@ function loadInputs() {
 
   /* ================= Closing ================= */
   if(type==='closing'){
-    div.innerHTML = section('Confirmation', fieldText('reviewed', 'Reviewed By', 'Name'), true);
+    div.innerHTML = section('Confirmation', fieldText('reviewedBy', 'Reviewed By', 'Name'), true);
   }
 
   const activeTab = document.querySelector('.tab.active');
@@ -170,15 +170,15 @@ function generateMessage() {
 ${today()}
 AM
 
-- Voice Commitment: 23
+- Voice Commitment: ${val('voiceCommit')}
 - Voice Achievement: ${val('voiceAch')}
 
-- Emerald Commitment: 1
+- Emerald Commitment: ${val('emeraldCommit')}
 - Emerald Achievement: ${val('emeraldAch')}
 
 - Primo: ${val('primo')}
 
-- Cash Commitment: 20
+- Cash Commitment: ${val('cashCommit')}
 - Cash Achievement: ${val('cashAch')}
 
 - Connectivity Ach: ${val('connect')}
@@ -263,7 +263,7 @@ Connectivity (100)
 ——————————————
 Cash Service (1175)
 - Daily Target: ${csTarget}
-- Daily Ach: ${csDaily}${csRefund > 0 ? ' (Refund: ' + csRefund + ')' : ''}
+- Daily Ach: ${csDaily}
 - MTD Target: ${csMtdTgt}
 - MTD Ach: ${csMtdAch}
 - RE: ${re(csMtdAch, csMtdTgt)}
@@ -281,10 +281,31 @@ Closing Ratio: ${cr}`;
 
   /* ================= Closing ================= */
   if(type==='closing'){
+    const d = new Date();
+    const dateStr = d.getDate() + '-' + (d.getMonth()+1) + '-' + d.getFullYear();
     output.value =
-`Closing Done ✅
+`Sohag Station
+${dateStr}
+Closing Confirmation
 
-Reviewed By: ${val('reviewed')}`;
+Quality
+ ☑︎ Contracts revision
+ ☑︎ Forms revision
+ ☑︎ Win cash over 1000 LE
+ ☑︎ Pending Cash in/out
+ ☑︎ Returned dials/status
+ ☑︎ Migration/change ownership SDF
+
+Stock
+ ☑︎ QOH
+ ☑︎ Low stock
+
+Cash
+ ☑︎ M-commerce revised
+ ☑︎ Staff drawers closing
+ ☑︎ Any over/short Cash (0)
+
+Reviewed By ${val('reviewedBy')}`;
   }
 }
 
