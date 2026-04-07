@@ -88,7 +88,7 @@ function loadInputs() {
   if(type==='am'){
     div.innerHTML =
       section('Voice',
-        editableTargetField('voiceCommit', 'Voice Commitment', 23) +
+        editableTargetField('voiceCommit', 'Voice Commitment', 25) +
         field('voiceAch', 'Voice Achievement')) +
 
       section('Emerald',
@@ -99,7 +99,7 @@ function loadInputs() {
         field('primo', 'Primo'), true) +
 
       section('Cash Service',
-        editableTargetField('cashCommit', 'Cash Commitment', 20) +
+        editableTargetField('cashCommit', 'Cash Commitment', 23) +
         field('cashAch', 'Cash Achievement')) +
 
       section('Other',
@@ -111,7 +111,7 @@ function loadInputs() {
   if(type==='pm'){
     div.innerHTML =
       section('Voice Lines',
-        editableTargetField('voiceTarget', 'Daily Target', 45) +
+        editableTargetField('voiceTarget', 'Daily Target', 50) +
         field('voiceDaily', 'Daily Ach') +
         field('voiceMtdYesterday', 'MTD Ach Yesterday')) +
 
@@ -130,7 +130,7 @@ function loadInputs() {
         field('connMtdYesterday', 'MTD Ach Yesterday')) +
 
       section('Cash Service',
-        editableTargetField('cashTarget', 'Daily Target', 38) +
+        editableTargetField('cashTarget', 'Daily Target', 47) +
         field('cashRefund', 'Refund') +
         field('cashDaily', 'Daily Ach') +
         field('cashMtdYesterday', 'MTD Ach Yesterday')) +
@@ -236,7 +236,7 @@ AM
 `sohag station
 ${today()}
 ——————————————
-Voice Lines (1396)
+Voice Lines (1509)
 - Daily Target: ${vTarget}
 - Daily Ach: ${vDaily}
 - MTD Target: ${vMtdTgt}
@@ -252,7 +252,7 @@ Postpaid (10)
 - MTD Ach: ${pMtdAch}
 - RE: ${re(pMtdAch, pMtdTgt)}
 ——————————————
-Connectivity (100)
+Connectivity (105)
 - Daily Target: ${cTarget}
 - Daily Ach: ${cDaily}
 - E-Home: ${val('ehome')}
@@ -261,14 +261,14 @@ Connectivity (100)
 - MTD Ach: ${cMtdAch}
 - RE: ${re(cMtdAch, cMtdTgt)}
 ——————————————
-Cash Service (1175)
+Cash Service (1427)
 - Daily Target: ${csTarget}
 - Daily Ach: ${csDaily}
 - MTD Target: ${csMtdTgt}
 - MTD Ach: ${csMtdAch}
 - RE: ${re(csMtdAch, csMtdTgt)}
 ——————————————
-MNP (55)
+MNP (64)
 - Daily Target: ${mTarget}
 - Daily Ach: ${mDaily}
 - MTD Target: ${mMtdTgt}
