@@ -544,7 +544,7 @@ input[type=number] {
   border: none;
   outline: none;
   padding: 16px;
-  font-family: "Courier New", monospace;
+  font-family: "Courier New", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", monospace;
   font-size: 13px;
   line-height: 1.7;
   display: block
