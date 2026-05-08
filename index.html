@@ -19,7 +19,16 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 // ─── Template defaults ───────────────────────────────────────────────────────
-const TEMPLATE_KEY = "shiftgen.template.v1";
+const TEMPLATE_KEY = "shiftgen.template.v2";
+
+function buildDefaultSchedule() {
+  const days = {};
+  for (let i = 1; i <= 31; i++) {
+    days[i] = { am: "", pm: "" };
+  }
+  return days;
+}
+
 const DEFAULT_TEMPLATE = {
   stationName: "Sohag Station",
   headerSub: "Sohag Station · Sales Reports",
@@ -28,7 +37,8 @@ const DEFAULT_TEMPLATE = {
     voiceTarget: 50, postTarget: 1, connTarget: 4, cashTarget: 47, mnpTarget: 2,
     voiceMonthly: 1509, postMonthly: 10, connMonthly: 105, cashMonthly: 1427, mnpMonthly: 64
   },
-  closing: { reviewedBy: "" }
+  closing: { reviewedBy: "" },
+  schedule: buildDefaultSchedule()
 };
 
 function loadTemplate() {
@@ -40,7 +50,8 @@ function loadTemplate() {
         ...DEFAULT_TEMPLATE, ...o,
         am: { ...DEFAULT_TEMPLATE.am, ...(o.am ?? {}) },
         pm: { ...DEFAULT_TEMPLATE.pm, ...(o.pm ?? {}) },
-        closing: { ...DEFAULT_TEMPLATE.closing, ...(o.closing ?? {}) }
+        closing: { ...DEFAULT_TEMPLATE.closing, ...(o.closing ?? {}) },
+        schedule: { ...buildDefaultSchedule(), ...(o.schedule ?? {}) }
       };
     }
   } catch {}
@@ -93,7 +104,25 @@ function generateClosing(tmpl, v) {
   return `${tmpl.stationName}\n${dateStr}\nClosing Confirmation\n\nQuality\n ✅ Contracts revision\n ✅ Forms revision\n ✅ Win cash over 1000 LE\n ✅ Pending Cash in/out\n ✅ Returned dials/status\n ✅ Migration/change ownership SDF\n\nStock\n ✅ QOH\n ✅ Low stock\n\nCash\n ✅ M-commerce revised\n ✅ Staff drawers closing\n ✅ Any over/short Cash (0)\n\nReviewed By ${v.reviewedBy}`;
 }
 
-// ─── Shared input components ──────────────────────────────────────────────────
+function generateShortReport(tmpl, v) {
+  const day = new Date().getDate();
+  const monthName = new Date().toLocaleString("en", { month: "long" });
+  const voiceMtdTarget = v.voiceTarget * day;
+  const voiceMtd = v.voiceDaily + v.voiceMtdYesterday;
+  const voiceShort = voiceMtdTarget - voiceMtd;
+  return `${day} ${monthName}\nMTD Target: ${voiceMtdTarget}\nShort MTD Ach: ${voiceShort > 0 ? voiceShort : 0}`;
+}
+
+function generateSchedule(tmpl) {
+  const d = new Date();
+  // Next day
+  const next = new Date(d);
+  next.setDate(d.getDate() + 1);
+  const nextDay = next.getDate();
+  const nextMonthName = next.toLocaleString("en", { month: "long" });
+  const dayData = (tmpl.schedule ?? {})[nextDay] ?? { am: "", pm: "" };
+  return `Schedule | ${nextDay} ${nextMonthName}\n\nAM\n${dayData.am || "—"}\n\nPM\n${dayData.pm || "—"}`;
+}
 // FIX: inputs show empty when value is 0, placeholder shows "0"
 // On blur, empty → stays 0 internally but shows empty visually
 function NumField({ label, id, value, onChange, placeholder = "0" }) {
@@ -164,6 +193,24 @@ function TextField({ label, id, value, onChange, placeholder = "" }) {
         value={value}
         placeholder={placeholder}
         autoComplete="off"
+        onChange={e => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function TextAreaField({ label, id, value, onChange, placeholder = "", rows = 3 }) {
+  return (
+    <div className="sg-field">
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        id={id}
+        className="sg-input"
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        rows={rows}
+        style={{ resize: "vertical", lineHeight: 1.6, fontFamily: "var(--font-body)", fontSize: 14, paddingTop: 10, paddingBottom: 10 }}
         onChange={e => onChange(e.target.value)}
       />
     </div>
@@ -266,6 +313,8 @@ function GeneratorPage({ onNav }) {
   const { template } = useTemplate();
   const [tab, setTab] = useState("am");
   const [output, setOutput] = useState("");
+  const [shortOutput, setShortOutput] = useState("");
+  const [shortCopied, setShortCopied] = useState(false);
   const [copied, setCopied] = useState(false);
   const sliderRef = useRef(null);
   const tabGroupRef = useRef(null);
@@ -277,7 +326,7 @@ function GeneratorPage({ onNav }) {
     }
   };
 
-  useEffect(() => { moveSlider(0, 3); }, []);
+  useEffect(() => { moveSlider(0, 4); }, []);
 
   // AM state
   const [am, setAm] = useState({
@@ -302,19 +351,38 @@ function GeneratorPage({ onNav }) {
   const [closing, setClosing] = useState({ reviewedBy: template.closing?.reviewedBy ?? "" });
   const setClosingF = (k, v) => setClosing(p => ({ ...p, [k]: v }));
 
-  const selectTab = (t, idx) => { setTab(t); setOutput(""); moveSlider(idx, 3); };
+  // Schedule live state (pre-filled from template for next day)
+  const getNextDayTemplate = () => {
+    const next = new Date(); next.setDate(next.getDate() + 1);
+    return template.schedule?.[next.getDate()] ?? { am: "", pm: "" };
+  };
+  const [schedAm, setSchedAm] = useState(() => getNextDayTemplate().am);
+  const [schedPm, setSchedPm] = useState(() => getNextDayTemplate().pm);
+
+  const selectTab = (t, idx) => { setTab(t); setOutput(""); setShortOutput(""); moveSlider(idx, 4); };
 
   const generate = () => {
     if (tab === "am") setOutput(generateAM(template, am));
-    else if (tab === "pm") setOutput(generatePM(template, pm));
+    else if (tab === "pm") {
+      setOutput(generatePM(template, pm));
+      setShortOutput(generateShortReport(template, pm));
+    }
+    else if (tab === "schedule") {
+      const next = new Date(); next.setDate(next.getDate() + 1);
+      const nextDay = next.getDate();
+      const nextMonthName = next.toLocaleString("en", { month: "long" });
+      setOutput(`✨ Schedule | ${nextDay} ${nextMonthName} ✨\n\n☀️ AM\n${schedAm || "—"}\n\n🌙 PM\n${schedPm || "—"}`);
+    }
     else setOutput(generateClosing(template, closing));
   };
 
   const clear = () => {
     setOutput("");
+    setShortOutput("");
     if (tab === "am") setAm({ voiceCommit: template.am.voiceCommit, voiceAch: 0, emeraldCommit: template.am.emeraldCommit, emeraldAch: 0, primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0, connect: 0, mnp: 0 });
     else if (tab === "pm") setPm({ voiceTarget: template.pm.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0, postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0, connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0, cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0, mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0 });
-    else setClosing({ reviewedBy: template.closing?.reviewedBy ?? "" });
+    else if (tab === "schedule") { const nd = getNextDayTemplate(); setSchedAm(nd.am); setSchedPm(nd.pm); }
+    else if (tab === "closing") setClosing({ reviewedBy: template.closing?.reviewedBy ?? "" });
   };
 
   const copy = async () => {
@@ -324,9 +392,21 @@ function GeneratorPage({ onNav }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyShort = async () => {
+    if (!shortOutput.trim()) return;
+    await navigator.clipboard.writeText(shortOutput);
+    setShortCopied(true);
+    setTimeout(() => setShortCopied(false), 2000);
+  };
+
   const whatsapp = () => {
     if (!output.trim()) return;
     window.open("https://wa.me/?text=" + encodeURIComponent(output), "_blank");
+  };
+
+  const whatsappShort = () => {
+    if (!shortOutput.trim()) return;
+    window.open("https://wa.me/?text=" + encodeURIComponent(shortOutput), "_blank");
   };
 
   return (
@@ -351,7 +431,7 @@ function GeneratorPage({ onNav }) {
         <div className="container">
           <p className="selector-label">Select shift type</p>
           <div className="tab-group" ref={tabGroupRef}>
-            {[["am","AM Shift",0],["pm","PM Shift",1],["closing","Closing",2]].map(([t,label,idx]) => (
+            {[["am","AM",0],["pm","PM",1],["closing","Closing",2],["schedule","Schedule",3]].map(([t,label,idx]) => (
               <button key={t} className={`sg-tab${tab === t ? " active" : ""}`} onClick={() => selectTab(t, idx)}>{label}</button>
             ))}
             <div className="tab-slider" ref={sliderRef} />
@@ -426,11 +506,42 @@ function GeneratorPage({ onNav }) {
                 <TextField label="Reviewed By" id="reviewedBy" value={closing.reviewedBy} onChange={v => setClosingF("reviewedBy", v)} placeholder="Name" />
               </Section>
             )}
+
+            {tab === "schedule" && (() => {
+              const next = new Date(); next.setDate(next.getDate() + 1);
+              const nextDay = next.getDate();
+              const nextMonth = next.toLocaleString("en", { month: "long" });
+              const schedData = template.schedule?.[nextDay] ?? { am: "", pm: "" };
+              return (
+                <>
+                  <Section title={`Next Day Schedule — ${nextDay} ${nextMonth}`} single>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <TextAreaField
+                        label="AM Staff"
+                        id="sched-am-live"
+                        value={schedAm}
+                        onChange={v => setSchedAm(v)}
+                        placeholder={schedData.am || "e.g. Kamal – Zienab – Naira"}
+                        rows={3}
+                      />
+                      <TextAreaField
+                        label="PM Staff"
+                        id="sched-pm-live"
+                        value={schedPm}
+                        onChange={v => setSchedPm(v)}
+                        placeholder={schedData.pm || "e.g. Nancy – Gawdat – Mohamed"}
+                        rows={3}
+                      />
+                    </div>
+                  </Section>
+                </>
+              );
+            })()}
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
             <button className="generate-btn" style={{ flex: 1, margin: 0 }} onClick={generate}>
-              <span className="btn-text">Generate Report</span>
+              <span className="btn-text">{tab === "schedule" ? "Generate Schedule" : "Generate Report"}</span>
               <span className="btn-arrow">→</span>
               <div className="btn-shine" />
             </button>
@@ -450,7 +561,20 @@ function GeneratorPage({ onNav }) {
                   <button className="icon-btn wa-btn" onClick={whatsapp} title="Share on WhatsApp"><IconWA /></button>
                 </div>
               </div>
-              <textarea className="sg-textarea" readOnly spellCheck={false} value={output} />
+              <textarea className="sg-textarea" readOnly spellCheck={false} value={output} style={tab === "schedule" ? { fontFamily: "'DM Sans', 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif", fontSize: 14 } : {}} />
+            </div>
+          )}
+
+          {tab === "pm" && shortOutput && (
+            <div className="output-wrap" style={{ marginTop: 14, borderColor: "rgba(0,229,192,0.2)" }}>
+              <div className="output-header" style={{ borderColor: "rgba(0,229,192,0.12)" }}>
+                <span className="output-label" style={{ color: "var(--accent3)" }}>Short Report</span>
+                <div className="output-actions">
+                  <button className="icon-btn" onClick={copyShort} title="Copy" style={{ borderColor: "rgba(0,229,192,0.25)", color: "var(--accent3)" }}><IconCopy /></button>
+                  <button className="icon-btn wa-btn" onClick={whatsappShort} title="Share on WhatsApp"><IconWA /></button>
+                </div>
+              </div>
+              <textarea className="sg-textarea" readOnly spellCheck={false} value={shortOutput} style={{ height: 110, color: "var(--accent3)" }} />
             </div>
           )}
         </div>
@@ -462,11 +586,82 @@ function GeneratorPage({ onNav }) {
         </footer>
       </div>
 
-      <div className={`toast${copied ? " show" : ""}`}>
+      <div className={`toast${copied || shortCopied ? " show" : ""}`}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Copied to clipboard
       </div>
     </>
+  );
+}
+
+// ─── Collapsible schedule group ───────────────────────────────────────────────
+function ScheduleGroup({ label, days, draft, setDraft }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, marginBottom: 10, overflow: "hidden", transition: "border-color 0.25s" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "13px 16px", background: open ? "rgba(79,168,255,0.08)" : "rgba(255,255,255,0.04)",
+          border: "none", cursor: "pointer", color: open ? "var(--accent)" : "var(--text)",
+          fontFamily: "var(--font-head)", fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
+          transition: "background 0.2s, color 0.2s"
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 4, height: 14, borderRadius: 2, background: open ? "var(--accent)" : "rgba(255,255,255,0.2)", display: "inline-block", flexShrink: 0, transition: "background 0.2s" }} />
+          {label}
+        </span>
+        <span style={{ fontSize: 16, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s cubic-bezier(0.34,1.2,0.64,1)", color: "var(--muted)" }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: "10px 12px 12px" }}>
+          {days.map(day => {
+            const sched = draft.schedule?.[day] ?? { am: "", pm: "" };
+            return (
+              <div key={day} style={{ border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 12px", marginBottom: 8, background: "rgba(255,255,255,0.02)" }}>
+                <div style={{ color: "var(--accent)", fontFamily: "var(--font-head)", fontSize: 11, fontWeight: 700, letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
+                  Day {day}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <TextAreaField
+                    label="AM Staff"
+                    id={`sched-am-${day}`}
+                    value={sched.am}
+                    onChange={v => {
+                      setDraft(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        if (!next.schedule) next.schedule = buildDefaultSchedule();
+                        next.schedule[day] = { ...next.schedule[day], am: v };
+                        return next;
+                      });
+                    }}
+                    placeholder="e.g. Kamal – Zienab"
+                    rows={2}
+                  />
+                  <TextAreaField
+                    label="PM Staff"
+                    id={`sched-pm-${day}`}
+                    value={sched.pm}
+                    onChange={v => {
+                      setDraft(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        if (!next.schedule) next.schedule = buildDefaultSchedule();
+                        next.schedule[day] = { ...next.schedule[day], pm: v };
+                        return next;
+                      });
+                    }}
+                    placeholder="e.g. Nancy – Gawdat"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -561,6 +756,27 @@ function TemplatePage({ onNav }) {
               <TplTextField label="Default Reviewed By (leave blank for manual entry)" value={draft.closing?.reviewedBy ?? ""} onChange={v => set("closing.reviewedBy", v)} placeholder="e.g. Station Manager" />
             </div>
           </EditorGroup>
+
+          {/* Schedule section */}
+          <div className="editor-group" style={{ marginTop: 20 }}>
+            <div className="editor-group-title">Monthly Schedule</div>
+            <p style={{ color: "var(--muted)", fontSize: 11, marginBottom: 14, lineHeight: 1.6 }}>
+              Set AM and PM staff for each day. Tap a group to expand. The Schedule tab pre-fills with the next day automatically.
+            </p>
+            {[
+              { label: "Days 1 – 10", days: [1,2,3,4,5,6,7,8,9,10] },
+              { label: "Days 11 – 20", days: [11,12,13,14,15,16,17,18,19,20] },
+              { label: "Days 21 – 31", days: [21,22,23,24,25,26,27,28,29,30,31] },
+            ].map(({ label, days }) => (
+              <ScheduleGroup
+                key={label}
+                label={label}
+                days={days}
+                draft={draft}
+                setDraft={setDraft}
+              />
+            ))}
+          </div>
 
           <button className="editor-save-btn" onClick={save}>Save Template</button>
           <button className="editor-reset-btn" onClick={reset}>
