@@ -115,7 +115,7 @@ function generatePM(tmpl, v) {
   const mnpMtd = v.mnpDaily + v.mnpMtdYesterday;
   const mnpMtdTarget = v.mnpTarget * day;
   const cr = v.trx > 0 ? `${Math.round(v.voiceDaily / v.trx * 100)}%` : "—";
-  return `${tmpl.stationName}\n${todayStr()}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
+  return `${tmpl.stationName}\n${todayStr()}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- From Base: ${v.cashFromBase}\n- MTD From Base: ${v.cashMtdFromBase}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
 }
 
 function generateClosing(tmpl, v) {
@@ -353,6 +353,7 @@ function GeneratorPage({ onNav }) {
     voiceCommit: template.am.voiceCommit, voiceAch: 0,
     emeraldCommit: template.am.emeraldCommit, emeraldAch: 0,
     primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0,
+    cashFromBase: 0, cashMtdFromBase: 0,
     connect: 0, mnp: 0
   });
   const setAmF = (k, v) => setAm(p => ({ ...p, [k]: v }));
@@ -363,6 +364,7 @@ function GeneratorPage({ onNav }) {
     postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0,
     connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0,
     cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0,
+    cashFromBase: 0, cashMtdFromBase: 0,
     mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0
   });
   const setPmF = (k, v) => setPm(p => ({ ...p, [k]: v }));
@@ -399,8 +401,8 @@ function GeneratorPage({ onNav }) {
   const clear = () => {
     setOutput("");
     setShortOutput("");
-    if (tab === "am") setAm({ voiceCommit: template.am.voiceCommit, voiceAch: 0, emeraldCommit: template.am.emeraldCommit, emeraldAch: 0, primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0, connect: 0, mnp: 0 });
-    else if (tab === "pm") setPm({ voiceTarget: template.pm.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0, postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0, connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0, cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0, mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0 });
+    if (tab === "am") setAm({ voiceCommit: template.am.voiceCommit, voiceAch: 0, emeraldCommit: template.am.emeraldCommit, emeraldAch: 0, primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0, cashFromBase: 0, cashMtdFromBase: 0, connect: 0, mnp: 0 });
+    else if (tab === "pm") setPm({ voiceTarget: template.pm.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0, postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0, connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0, cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0, cashFromBase: 0, cashMtdFromBase: 0, mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0 });
     else if (tab === "schedule") { const nd = getNextDayTemplate(); setSchedAm(nd.am); setSchedPm(nd.pm); }
     else if (tab === "closing") setClosing({ reviewedBy: template.closing?.reviewedBy ?? "" });
   };
@@ -509,6 +511,8 @@ function GeneratorPage({ onNav }) {
                   <NumField label="Refund" id="cashRefund" value={pm.cashRefund} onChange={v => setPmF("cashRefund", v)} />
                   <NumField label="Daily Ach" id="cashDaily" value={pm.cashDaily} onChange={v => setPmF("cashDaily", v)} />
                   <NumField label="MTD Ach Yesterday" id="cashMtdYesterday" value={pm.cashMtdYesterday} onChange={v => setPmF("cashMtdYesterday", v)} />
+                  <NumField label="From Base" id="cashFromBasePm" value={pm.cashFromBase} onChange={v => setPmF("cashFromBase", v)} />
+                  <NumField label="MTD From Base" id="cashMtdFromBasePm" value={pm.cashMtdFromBase} onChange={v => setPmF("cashMtdFromBase", v)} />
                 </Section>
                 <Section title="MNP">
                   <TargetField label="Daily Target" id="mnpTarget" value={pm.mnpTarget} onChange={v => setPmF("mnpTarget", v)} />
