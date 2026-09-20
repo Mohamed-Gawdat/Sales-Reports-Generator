@@ -25,6 +25,13 @@
       }
       #app-loading p { color: #7a8499; font-family: sans-serif; font-size: 13px; margin: 0; }
       @keyframes spin { to { transform: rotate(360deg); } }
+      .sg-input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(0.7);
+        cursor: pointer;
+      }
+      .sg-input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        filter: invert(1);
+      }
     </style>
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-512.png">
     <link rel="stylesheet" href="style.css">
@@ -57,6 +64,15 @@ const DEFAULT_TEMPLATE = {
     voiceTarget: 50, postTarget: 1, connTarget: 4, cashTarget: 47, mnpTarget: 2,
     voiceMonthly: 1509, postMonthly: 10, connMonthly: 105, cashMonthly: 1427, mnpMonthly: 64
   },
+  area: {
+    areaName: "Asker Area",
+    voiceTarget: 349, voiceMonthly: 10464,
+    postTarget: 6, postMonthly: 186,
+    connTarget: 34, connMonthly: 1011,
+    adslTarget: 1, adslMonthly: 20,
+    cashTarget: 280, cashMonthly: 8398,
+    mnpTarget: 14, mnpMonthly: 429
+  },
   closing: { reviewedBy: "" },
   schedule: buildDefaultSchedule()
 };
@@ -70,6 +86,7 @@ function loadTemplate() {
         ...DEFAULT_TEMPLATE, ...o,
         am: { ...DEFAULT_TEMPLATE.am, ...(o.am ?? {}) },
         pm: { ...DEFAULT_TEMPLATE.pm, ...(o.pm ?? {}) },
+        area: { ...DEFAULT_TEMPLATE.area, ...(o.area ?? {}) },
         closing: { ...DEFAULT_TEMPLATE.closing, ...(o.closing ?? {}) },
         schedule: { ...buildDefaultSchedule(), ...(o.schedule ?? {}) }
       };
@@ -92,16 +109,29 @@ function todayStr() {
   return `${d.getDate()} / ${d.toLocaleString("en", { month: "short" })} / ${d.getFullYear()}`;
 }
 
+function todayInputValue() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function formatDateForDisplay(dateStr) {
+  if (!dateStr) return todayStr();
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getDate()} / ${d.toLocaleString("en", { month: "short" })} / ${d.getFullYear()}`;
+}
+
 function pct(a, b) { return b > 0 ? `${Math.round(a / b * 100)}%` : "—"; }
 
 // ─── Report generators ───────────────────────────────────────────────────────
-function generateAM(tmpl, v) {
+function generateAM(tmpl, v, dateStr) {
   const cashNet = v.cashAch - v.cashRefund;
-  return `${tmpl.stationName}\n${todayStr()}\nAM\n\n- Voice Commitment: ${v.voiceCommit}\n- Voice Achievement: ${v.voiceAch}\n\n- Emerald Commitment: ${v.emeraldCommit}\n- Emerald Achievement: ${v.emeraldAch}\n\n- Primo: ${v.primo}\n\n- Cash Commitment: ${v.cashCommit}\n- Cash Achievement: ${cashNet}\n\n- Connectivity Ach: ${v.connect}\n\n- MNP: ${v.mnp}`;
+  return `${tmpl.stationName}\n${dateStr}\nAM\n\n- Voice Commitment: ${v.voiceCommit}\n- Voice Achievement: ${v.voiceAch}\n\n- Emerald Commitment: ${v.emeraldCommit}\n- Emerald Achievement: ${v.emeraldAch}\n\n- Primo: ${v.primo}\n\n- Cash Commitment: ${v.cashCommit}\n- Cash Achievement: ${cashNet}\n\n- Connectivity Ach: ${v.connect}\n\n- MNP: ${v.mnp}`;
 }
 
-function generatePM(tmpl, v) {
-  const day = new Date().getDate();
+function generatePM(tmpl, v, dateStr, dayNum) {
+  const day = dayNum;
   const pm = tmpl.pm;
   const voiceMtd = v.voiceDaily + v.voiceMtdYesterday;
   const voiceMtdTarget = v.voiceTarget * day;
@@ -115,40 +145,102 @@ function generatePM(tmpl, v) {
   const mnpMtd = v.mnpDaily + v.mnpMtdYesterday;
   const mnpMtdTarget = v.mnpTarget * day;
   const cr = v.trx > 0 ? `${Math.round(v.voiceDaily / v.trx * 100)}%` : "—";
-  return `${tmpl.stationName}\n${todayStr()}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- From Base: ${v.cashFromBase}\n- MTD From Base: ${v.cashMtdFromBase}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
+  return `${tmpl.stationName}\n${dateStr}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- From Base: ${v.cashFromBase}\n- MTD From Base: ${v.cashMtdFromBase}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
 }
 
-function generateClosing(tmpl, v) {
-  const d = new Date();
-  const dateStr = `${d.getDate()}-${d.getMonth()+1}-${d.getFullYear()}`;
+function generateArea(tmpl, v, dateStr, dayNum) {
+  const area = tmpl.area;
+  const day = dayNum;
+
+  const voiceMtd = v.voiceDaily + v.voiceMtdYesterday;
+  const voiceMtdTarget = v.voiceTarget * day;
+
+  const postMtd = v.postDaily + v.postMtdYesterday;
+  const postMtdTarget = Math.min(v.postTarget * day, area.postMonthly);
+
+  const connMtd = v.connDaily + v.connMtdYesterday;
+  const connMtdTarget = v.connTarget * day;
+
+  const adslMtd = v.adslDaily + v.adslMtdYesterday;
+  const adslMtdTarget = v.adslTarget * day;
+
+  const cashMtd = v.cashDaily + v.cashMtdYesterday;
+  const cashMtdTarget = v.cashTarget * day;
+
+  const mnpMtd = v.mnpDaily + v.mnpMtdYesterday;
+  const mnpMtdTarget = v.mnpTarget * day;
+
+  return `${area.areaName}
+${dateStr}
+—————————————
+Voice Lines (${area.voiceMonthly})
+Daily Target: ${v.voiceTarget}
+Daily Ach: ${v.voiceDaily}
+MTD Target: ${voiceMtdTarget}
+MTD Ach: ${voiceMtd}
+DR Achievement: ${v.voiceDr}
+MTD DR: ${v.voiceMtdDr}
+RE: ${pct(voiceMtd, voiceMtdTarget)}
+—————————————
+Postpaid (${area.postMonthly})
+Daily Target: ${v.postTarget}
+Daily Ach: ${v.postDaily}
+• Emerald: ${v.emerald}
+• Primo: ${v.primoPost}
+MTD Target: ${postMtdTarget}
+MTD Ach: ${postMtd}
+RE: ${pct(postMtd, postMtdTarget)}
+————————————
+Connectivity (${area.connMonthly})
+Daily Target: ${v.connTarget}
+Daily Ach: ${v.connDaily}
+• E-Home: ${v.ehome}
+MTD Target: ${connMtdTarget}
+MTD Ach: ${connMtd}
+RE: ${pct(connMtd, connMtdTarget)}
+  ADSL (${area.adslMonthly})
+  Daily Target: ${v.adslTarget}
+  Daily Ach: ${v.adslDaily}
+  MTD Target: ${adslMtdTarget}
+  MTD Ach: ${adslMtd}
+  RE: ${pct(adslMtd, adslMtdTarget)}
+—————————————
+Cash Service (${area.cashMonthly})
+Daily Target: ${v.cashTarget}
+Daily Ach: ${v.cashDaily}
+• From Base: ${v.cashFromBase}
+• MTD From Base: ${v.cashMtdFromBase}
+MTD Target: ${cashMtdTarget}
+MTD Ach: ${cashMtd}
+RE: ${pct(cashMtd, cashMtdTarget)}
+—————————————
+MNP (${area.mnpMonthly})
+Daily Target: ${v.mnpTarget}
+Daily Ach: ${v.mnpDaily}
+MTD Target: ${mnpMtdTarget}
+MTD Ach: ${mnpMtd}
+RE: ${pct(mnpMtd, mnpMtdTarget)}
+—————————————`;
+}
+
+function generateClosing(tmpl, v, dateObj) {
+  const dateStr = `${dateObj.getDate()}-${dateObj.getMonth()+1}-${dateObj.getFullYear()}`;
   return `${tmpl.stationName}\n${dateStr}\nClosing Confirmation\n\nQuality\n ✅ Contracts revision\n ✅ Forms revision\n ✅ Win cash over 1000 LE\n ✅ Pending Cash in/out\n ✅ Returned dials/status\n ✅ Migration/change ownership SDF\n\nStock\n ✅ QOH\n ✅ Low stock\n\nCash\n ✅ M-commerce revised\n ✅ Staff drawers closing\n ✅ Any over/short Cash (0)\n\nReviewed By ${v.reviewedBy}`;
 }
 
-function generateShortReport(tmpl, v) {
-  const day = new Date().getDate();
-  const monthName = new Date().toLocaleString("en", { month: "long" });
+function generateShortReport(tmpl, v, dateObj) {
+  const day = dateObj.getDate();
+  const monthName = dateObj.toLocaleString("en", { month: "long" });
   const voiceMtdTarget = v.voiceTarget * day;
   const voiceMtd = v.voiceDaily + v.voiceMtdYesterday;
   const voiceShort = voiceMtdTarget - voiceMtd;
   return `${day} ${monthName}\nMTD Target: ${voiceMtdTarget}\nShort MTD Ach: ${voiceShort > 0 ? voiceShort : 0}`;
 }
 
-function generateSchedule(tmpl) {
-  const d = new Date();
-  // Next day
-  const next = new Date(d);
-  next.setDate(d.getDate() + 1);
-  const nextDay = next.getDate();
-  const nextMonthName = next.toLocaleString("en", { month: "long" });
-  const dayData = (tmpl.schedule ?? {})[nextDay] ?? { am: "", pm: "" };
-  return `Schedule | ${nextDay} ${nextMonthName}\n\nAM\n${dayData.am || "—"}\n\nPM\n${dayData.pm || "—"}`;
-}
-// FIX: inputs show empty when value is 0, placeholder shows "0"
-// On blur, empty → stays 0 internally but shows empty visually
+// ─── Input components ────────────────────────────────────────────────────────
 function NumField({ label, id, value, onChange, placeholder = "0" }) {
   const [display, setDisplay] = useState(value === 0 ? "" : String(value));
 
-  // Sync when parent resets
   useEffect(() => {
     setDisplay(value === 0 ? "" : String(value));
   }, [value]);
@@ -237,7 +329,23 @@ function TextAreaField({ label, id, value, onChange, placeholder = "", rows = 3 
   );
 }
 
-// Template editor number field — same empty-on-zero fix
+function DateField({ label, id, value, onChange }) {
+  return (
+    <div className="sg-field">
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="date"
+        className="sg-input"
+        value={value}
+        autoComplete="off"
+        onChange={e => onChange(e.target.value)}
+        style={{ colorScheme: "dark" }}
+      />
+    </div>
+  );
+}
+
 function TplNumField({ label, value, onChange }) {
   const [display, setDisplay] = useState(value === 0 ? "" : String(value));
 
@@ -336,6 +444,7 @@ function GeneratorPage({ onNav }) {
   const [shortOutput, setShortOutput] = useState("");
   const [shortCopied, setShortCopied] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [reportDate, setReportDate] = useState(todayInputValue());
   const sliderRef = useRef(null);
   const tabGroupRef = useRef(null);
 
@@ -346,7 +455,7 @@ function GeneratorPage({ onNav }) {
     }
   };
 
-  useEffect(() => { moveSlider(0, 4); }, []);
+  useEffect(() => { moveSlider(0, 5); }, []);
 
   // AM state
   const [am, setAm] = useState({
@@ -369,41 +478,80 @@ function GeneratorPage({ onNav }) {
   });
   const setPmF = (k, v) => setPm(p => ({ ...p, [k]: v }));
 
+  // Area state
+  const [area, setArea] = useState({
+    voiceTarget: template.area.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0,
+    voiceDr: 0, voiceMtdDr: 0,
+    postTarget: template.area.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0,
+    connTarget: template.area.connTarget, connDaily: 0, ehome: 0, connMtdYesterday: 0,
+    adslTarget: template.area.adslTarget, adslDaily: 0, adslMtdYesterday: 0,
+    cashTarget: template.area.cashTarget, cashDaily: 0, cashMtdYesterday: 0,
+    cashFromBase: 0, cashMtdFromBase: 0,
+    mnpTarget: template.area.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0
+  });
+  const setAreaF = (k, v) => setArea(p => ({ ...p, [k]: v }));
+
   // Closing state
   const [closing, setClosing] = useState({ reviewedBy: template.closing?.reviewedBy ?? "" });
   const setClosingF = (k, v) => setClosing(p => ({ ...p, [k]: v }));
 
-  // Schedule live state (pre-filled from template for next day)
-  const getNextDayTemplate = () => {
-    const next = new Date(); next.setDate(next.getDate() + 1);
+  // Schedule live state
+  const getNextDayTemplate = (dateStr) => {
+    const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    const next = new Date(base);
+    next.setDate(base.getDate() + 1);
     return template.schedule?.[next.getDate()] ?? { am: "", pm: "" };
   };
-  const [schedAm, setSchedAm] = useState(() => getNextDayTemplate().am);
-  const [schedPm, setSchedPm] = useState(() => getNextDayTemplate().pm);
+  const [schedAm, setSchedAm] = useState(() => getNextDayTemplate(todayInputValue()).am);
+  const [schedPm, setSchedPm] = useState(() => getNextDayTemplate(todayInputValue()).pm);
 
-  const selectTab = (t, idx) => { setTab(t); setOutput(""); setShortOutput(""); moveSlider(idx, 4); };
+  // Sync schedule when report date changes
+  useEffect(() => {
+    const nd = getNextDayTemplate(reportDate);
+    setSchedAm(nd.am);
+    setSchedPm(nd.pm);
+  }, [reportDate, template]);
+
+  const selectTab = (t, idx) => { setTab(t); setOutput(""); setShortOutput(""); moveSlider(idx, 5); };
 
   const generate = () => {
-    if (tab === "am") setOutput(generateAM(template, am));
+    const dateObj = new Date(reportDate + "T00:00:00");
+    const displayDate = formatDateForDisplay(reportDate);
+    const dayNum = dateObj.getDate();
+
+    if (tab === "am") setOutput(generateAM(template, am, displayDate));
     else if (tab === "pm") {
-      setOutput(generatePM(template, pm));
-      setShortOutput(generateShortReport(template, pm));
+      setOutput(generatePM(template, pm, displayDate, dayNum));
+      setShortOutput(generateShortReport(template, pm, dateObj));
     }
+    else if (tab === "area") setOutput(generateArea(template, area, displayDate, dayNum));
     else if (tab === "schedule") {
-      const next = new Date(); next.setDate(next.getDate() + 1);
+      const next = new Date(dateObj);
+      next.setDate(dateObj.getDate() + 1);
       const nextDay = next.getDate();
       const nextMonthName = next.toLocaleString("en", { month: "long" });
       setOutput(`✨ Schedule | ${nextDay} ${nextMonthName} ✨\n\n☀️ AM\n${schedAm || "—"}\n\n🌙 PM\n${schedPm || "—"}`);
     }
-    else setOutput(generateClosing(template, closing));
+    else setOutput(generateClosing(template, closing, dateObj));
   };
 
   const clear = () => {
     setOutput("");
     setShortOutput("");
+    setReportDate(todayInputValue());
     if (tab === "am") setAm({ voiceCommit: template.am.voiceCommit, voiceAch: 0, emeraldCommit: template.am.emeraldCommit, emeraldAch: 0, primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0, cashFromBase: 0, cashMtdFromBase: 0, connect: 0, mnp: 0 });
     else if (tab === "pm") setPm({ voiceTarget: template.pm.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0, postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0, connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0, cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0, cashFromBase: 0, cashMtdFromBase: 0, mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0 });
-    else if (tab === "schedule") { const nd = getNextDayTemplate(); setSchedAm(nd.am); setSchedPm(nd.pm); }
+    else if (tab === "area") setArea({
+      voiceTarget: template.area.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0,
+      voiceDr: 0, voiceMtdDr: 0,
+      postTarget: template.area.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0,
+      connTarget: template.area.connTarget, connDaily: 0, ehome: 0, connMtdYesterday: 0,
+      adslTarget: template.area.adslTarget, adslDaily: 0, adslMtdYesterday: 0,
+      cashTarget: template.area.cashTarget, cashDaily: 0, cashMtdYesterday: 0,
+      cashFromBase: 0, cashMtdFromBase: 0,
+      mnpTarget: template.area.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0
+    });
+    else if (tab === "schedule") { const nd = getNextDayTemplate(todayInputValue()); setSchedAm(nd.am); setSchedPm(nd.pm); }
     else if (tab === "closing") setClosing({ reviewedBy: template.closing?.reviewedBy ?? "" });
   };
 
@@ -453,7 +601,7 @@ function GeneratorPage({ onNav }) {
         <div className="container">
           <p className="selector-label">Select shift type</p>
           <div className="tab-group" ref={tabGroupRef}>
-            {[["am","AM",0],["pm","PM",1],["closing","Closing",2],["schedule","Schedule",3]].map(([t,label,idx]) => (
+            {[["am","AM",0],["pm","PM",1],["area","Area",2],["closing","Closing",3],["schedule","Schedule",4]].map(([t,label,idx]) => (
               <button key={t} className={`sg-tab${tab === t ? " active" : ""}`} onClick={() => selectTab(t, idx)}>{label}</button>
             ))}
             <div className="tab-slider" ref={sliderRef} />
@@ -462,6 +610,9 @@ function GeneratorPage({ onNav }) {
           <div className="inputs-area" key={tab}>
             {tab === "am" && (
               <>
+                <Section title="Report Date" single>
+                  <DateField label="Date" id="reportDateAm" value={reportDate} onChange={setReportDate} />
+                </Section>
                 <Section title="Voice">
                   <TargetField label="Voice Commitment" id="voiceCommit" value={am.voiceCommit} onChange={v => setAmF("voiceCommit", v)} />
                   <NumField label="Voice Achievement" id="voiceAch" value={am.voiceAch} onChange={v => setAmF("voiceAch", v)} />
@@ -487,6 +638,9 @@ function GeneratorPage({ onNav }) {
 
             {tab === "pm" && (
               <>
+                <Section title="Report Date" single>
+                  <DateField label="Date" id="reportDatePm" value={reportDate} onChange={setReportDate} />
+                </Section>
                 <Section title="Voice Lines">
                   <TargetField label="Daily Target" id="voiceTarget" value={pm.voiceTarget} onChange={v => setPmF("voiceTarget", v)} />
                   <NumField label="Daily Ach" id="voiceDaily" value={pm.voiceDaily} onChange={v => setPmF("voiceDaily", v)} />
@@ -525,19 +679,75 @@ function GeneratorPage({ onNav }) {
               </>
             )}
 
+            {tab === "area" && (
+              <>
+                <Section title="Report Date" single>
+                  <DateField label="Date" id="reportDateArea" value={reportDate} onChange={setReportDate} />
+                </Section>
+
+                <Section title="Voice Lines">
+                  <TargetField label="Daily Target" id="aVoiceTarget" value={area.voiceTarget} onChange={v => setAreaF("voiceTarget", v)} />
+                  <NumField label="Daily Ach" id="aVoiceDaily" value={area.voiceDaily} onChange={v => setAreaF("voiceDaily", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aVoiceMtdY" value={area.voiceMtdYesterday} onChange={v => setAreaF("voiceMtdYesterday", v)} />
+                  <NumField label="DR Achievement" id="aVoiceDr" value={area.voiceDr} onChange={v => setAreaF("voiceDr", v)} />
+                  <NumField label="MTD DR" id="aVoiceMtdDr" value={area.voiceMtdDr} onChange={v => setAreaF("voiceMtdDr", v)} />
+                </Section>
+
+                <Section title="Postpaid">
+                  <TargetField label="Daily Target" id="aPostTarget" value={area.postTarget} onChange={v => setAreaF("postTarget", v)} />
+                  <NumField label="Daily Ach" id="aPostDaily" value={area.postDaily} onChange={v => setAreaF("postDaily", v)} />
+                  <NumField label="Emerald" id="aEmerald" value={area.emerald} onChange={v => setAreaF("emerald", v)} />
+                  <NumField label="Primo" id="aPrimo" value={area.primoPost} onChange={v => setAreaF("primoPost", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aPostMtdY" value={area.postMtdYesterday} onChange={v => setAreaF("postMtdYesterday", v)} />
+                </Section>
+
+                <Section title="Connectivity">
+                  <TargetField label="Daily Target" id="aConnTarget" value={area.connTarget} onChange={v => setAreaF("connTarget", v)} />
+                  <NumField label="Daily Ach" id="aConnDaily" value={area.connDaily} onChange={v => setAreaF("connDaily", v)} />
+                  <NumField label="E-Home" id="aEhome" value={area.ehome} onChange={v => setAreaF("ehome", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aConnMtdY" value={area.connMtdYesterday} onChange={v => setAreaF("connMtdYesterday", v)} />
+                </Section>
+
+                <Section title="ADSL">
+                  <TargetField label="Daily Target" id="aAdslTarget" value={area.adslTarget} onChange={v => setAreaF("adslTarget", v)} />
+                  <NumField label="Daily Ach" id="aAdslDaily" value={area.adslDaily} onChange={v => setAreaF("adslDaily", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aAdslMtdY" value={area.adslMtdYesterday} onChange={v => setAreaF("adslMtdYesterday", v)} />
+                </Section>
+
+                <Section title="Cash Service">
+                  <TargetField label="Daily Target" id="aCashTarget" value={area.cashTarget} onChange={v => setAreaF("cashTarget", v)} />
+                  <NumField label="Daily Ach" id="aCashDaily" value={area.cashDaily} onChange={v => setAreaF("cashDaily", v)} />
+                  <NumField label="From Base" id="aCashFromBase" value={area.cashFromBase} onChange={v => setAreaF("cashFromBase", v)} />
+                  <NumField label="MTD From Base" id="aCashMtdFromBase" value={area.cashMtdFromBase} onChange={v => setAreaF("cashMtdFromBase", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aCashMtdY" value={area.cashMtdYesterday} onChange={v => setAreaF("cashMtdYesterday", v)} />
+                </Section>
+
+                <Section title="MNP">
+                  <TargetField label="Daily Target" id="aMnpTarget" value={area.mnpTarget} onChange={v => setAreaF("mnpTarget", v)} />
+                  <NumField label="Daily Ach" id="aMnpDaily" value={area.mnpDaily} onChange={v => setAreaF("mnpDaily", v)} />
+                  <NumField label="MTD Ach Yesterday" id="aMnpMtdY" value={area.mnpMtdYesterday} onChange={v => setAreaF("mnpMtdYesterday", v)} />
+                </Section>
+              </>
+            )}
+
             {tab === "closing" && (
               <Section title="Confirmation" single>
+                <DateField label="Date" id="reportDateClosing" value={reportDate} onChange={setReportDate} />
                 <TextField label="Reviewed By" id="reviewedBy" value={closing.reviewedBy} onChange={v => setClosingF("reviewedBy", v)} placeholder="Name" />
               </Section>
             )}
 
             {tab === "schedule" && (() => {
-              const next = new Date(); next.setDate(next.getDate() + 1);
+              const base = new Date(reportDate + "T00:00:00");
+              const next = new Date(base); next.setDate(base.getDate() + 1);
               const nextDay = next.getDate();
               const nextMonth = next.toLocaleString("en", { month: "long" });
               const schedData = template.schedule?.[nextDay] ?? { am: "", pm: "" };
               return (
                 <>
+                  <Section title="Report Date" single>
+                    <DateField label="Date" id="reportDateSchedule" value={reportDate} onChange={setReportDate} />
+                  </Section>
                   <Section title={`Next Day Schedule — ${nextDay} ${nextMonth}`} single>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <TextAreaField
@@ -744,7 +954,6 @@ function TemplatePage({ onNav }) {
           <div className="editor-title">Edit Template</div>
           <div className="editor-sub">Customize your station details and default shift targets. Changes are saved to your device.</div>
 
-          {/* General — NO Developer Credit field */}
           <EditorGroup title="General" single>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <TplTextField label="Station Name" value={draft.stationName} onChange={v => set("stationName", v)} />
@@ -774,14 +983,41 @@ function TemplatePage({ onNav }) {
             <TplNumField label="MNP Monthly" value={draft.pm.mnpMonthly} onChange={v => set("pm.mnpMonthly", v)} />
           </EditorGroup>
 
-          {/* NEW: Closing section */}
+          <EditorGroup title="Area — Area Name" single>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <TplTextField
+                label="Area Name"
+                value={draft.area.areaName}
+                onChange={v => set("area.areaName", v)}
+                placeholder="e.g. Asker Area"
+              />
+            </div>
+          </EditorGroup>
+
+          <EditorGroup title="Area — Daily Targets">
+            <TplNumField label="Voice Daily Target" value={draft.area.voiceTarget} onChange={v => set("area.voiceTarget", v)} />
+            <TplNumField label="Postpaid Daily Target" value={draft.area.postTarget} onChange={v => set("area.postTarget", v)} />
+            <TplNumField label="Connectivity Daily Target" value={draft.area.connTarget} onChange={v => set("area.connTarget", v)} />
+            <TplNumField label="ADSL Daily Target" value={draft.area.adslTarget} onChange={v => set("area.adslTarget", v)} />
+            <TplNumField label="Cash Daily Target" value={draft.area.cashTarget} onChange={v => set("area.cashTarget", v)} />
+            <TplNumField label="MNP Daily Target" value={draft.area.mnpTarget} onChange={v => set("area.mnpTarget", v)} />
+          </EditorGroup>
+
+          <EditorGroup title="Area — Monthly Targets (shown in report)">
+            <TplNumField label="Voice Lines Monthly" value={draft.area.voiceMonthly} onChange={v => set("area.voiceMonthly", v)} />
+            <TplNumField label="Postpaid Monthly" value={draft.area.postMonthly} onChange={v => set("area.postMonthly", v)} />
+            <TplNumField label="Connectivity Monthly" value={draft.area.connMonthly} onChange={v => set("area.connMonthly", v)} />
+            <TplNumField label="ADSL Monthly" value={draft.area.adslMonthly} onChange={v => set("area.adslMonthly", v)} />
+            <TplNumField label="Cash Service Monthly" value={draft.area.cashMonthly} onChange={v => set("area.cashMonthly", v)} />
+            <TplNumField label="MNP Monthly" value={draft.area.mnpMonthly} onChange={v => set("area.mnpMonthly", v)} />
+          </EditorGroup>
+
           <EditorGroup title="Closing — Default Reviewed By" single>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <TplTextField label="Default Reviewed By (leave blank for manual entry)" value={draft.closing?.reviewedBy ?? ""} onChange={v => set("closing.reviewedBy", v)} placeholder="e.g. Station Manager" />
             </div>
           </EditorGroup>
 
-          {/* Schedule section */}
           <div className="editor-group" style={{ marginTop: 20 }}>
             <div className="editor-group-title">Monthly Schedule</div>
             <p style={{ color: "var(--muted)", fontSize: 11, marginBottom: 14, lineHeight: 1.6 }}>
@@ -824,7 +1060,7 @@ function TemplatePage({ onNav }) {
   );
 }
 
-// ─── App router ───────────────────────────────────────────────────────────────
+
 function App() {
   const [page, setPage] = useState("home");
   if (page === "template") return <TemplatePage onNav={setPage} />;
@@ -834,7 +1070,6 @@ function App() {
 const rootEl = document.getElementById("root");
 const loadingEl = document.getElementById("app-loading");
 ReactDOM.createRoot(rootEl).render(<App />);
-// Hide loading splash after first paint
 requestAnimationFrame(() => {
   if (loadingEl) loadingEl.style.display = "none";
 });
