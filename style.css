@@ -739,3 +739,22 @@ footer strong {
     font-size: 12px
   }
 }
+
+
+/* 5 tabs layout fix */
+.tab-group {
+  display: flex;
+  position: relative;
+}
+
+.sg-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 12px 6px;
+  font-size: 12px;
+}
+
+/* Date picker dark theme */
+.sg-input[type="date"] {
+  color-scheme: dark;
+}
