@@ -45,14 +45,13 @@
     <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-// ─── Template defaults ───────────────────────────────────────────────────────
+// ─── Storage keys ────────────────────────────────────────────────────────────
 const TEMPLATE_KEY = "shiftgen.template.v2";
+const MTD_KEY = "shiftgen.mtd.v1";
 
 function buildDefaultSchedule() {
   const days = {};
-  for (let i = 1; i <= 31; i++) {
-    days[i] = { am: "", pm: "" };
-  }
+  for (let i = 1; i <= 31; i++) days[i] = { am: "", pm: "" };
   return days;
 }
 
@@ -103,6 +102,19 @@ function useTemplate() {
   return { template, updateTemplate };
 }
 
+// ─── Saved MTD storage ───────────────────────────────────────────────────────
+function loadSavedMtd() {
+  try {
+    const s = localStorage.getItem(MTD_KEY);
+    if (s) return JSON.parse(s);
+  } catch {}
+  return { am: {}, pm: {}, area: {} };
+}
+
+function saveSavedMtd(data) {
+  localStorage.setItem(MTD_KEY, JSON.stringify(data));
+}
+
 // ─── Date / helpers ──────────────────────────────────────────────────────────
 function todayStr() {
   const d = new Date();
@@ -142,10 +154,11 @@ function generatePM(tmpl, v, dateStr, dayNum) {
   const cashNet = v.cashDaily - v.cashRefund;
   const cashMtd = v.cashDaily + v.cashMtdYesterday;
   const cashMtdTarget = v.cashTarget * day;
+  const cashMtdFromBaseTotal = v.cashMtdFromBase + v.cashFromBase;
   const mnpMtd = v.mnpDaily + v.mnpMtdYesterday;
   const mnpMtdTarget = v.mnpTarget * day;
   const cr = v.trx > 0 ? `${Math.round(v.voiceDaily / v.trx * 100)}%` : "—";
-  return `${tmpl.stationName}\n${dateStr}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- From Base: ${v.cashFromBase}\n- MTD From Base: ${v.cashMtdFromBase}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
+  return `${tmpl.stationName}\n${dateStr}\n——————————————\nVoice Lines (${pm.voiceMonthly})\n- Daily Target: ${v.voiceTarget}\n- Daily Ach: ${v.voiceDaily}\n- MTD Target: ${voiceMtdTarget}\n- MTD Ach: ${voiceMtd}\n- RE: ${pct(voiceMtd, voiceMtdTarget)}\n——————————————\nPostpaid (${pm.postMonthly})\n- Daily Target: ${v.postTarget}\n- Daily Ach: ${v.postDaily}\n• Emerald: ${v.emerald}\n• Primo: ${v.primoPost}\n- MTD Target: ${postMtdTarget}\n- MTD Ach: ${postMtd}\n- RE: ${pct(postMtd, postMtdTarget)}\n——————————————\nConnectivity (${pm.connMonthly})\n- Daily Target: ${v.connTarget}\n- Daily Ach: ${v.connDaily}\n- E-Home: ${v.ehome}\n- ADSL: ${v.adsl}\n- MTD Target: ${connMtdTarget}\n- MTD Ach: ${connMtd}\n- RE: ${pct(connMtd, connMtdTarget)}\n——————————————\nCash Service (${pm.cashMonthly})\n- Daily Target: ${v.cashTarget}\n- Daily Ach: ${cashNet}\n- From Base: ${v.cashFromBase}\n- MTD From Base: ${cashMtdFromBaseTotal}\n- MTD Target: ${cashMtdTarget}\n- MTD Ach: ${cashMtd}\n- RE: ${pct(cashMtd, cashMtdTarget)}\n——————————————\nMNP (${pm.mnpMonthly})\n- Daily Target: ${v.mnpTarget}\n- Daily Ach: ${v.mnpDaily}\n- MTD Target: ${mnpMtdTarget}\n- MTD Ach: ${mnpMtd}\n- RE: ${pct(mnpMtd, mnpMtdTarget)}\n——————————————\nTotal TRX ${v.trx}\nClosing Ratio: ${cr}`;
 }
 
 function generateArea(tmpl, v, dateStr, dayNum) {
@@ -166,6 +179,7 @@ function generateArea(tmpl, v, dateStr, dayNum) {
 
   const cashMtd = v.cashDaily + v.cashMtdYesterday;
   const cashMtdTarget = v.cashTarget * day;
+  const cashMtdFromBaseTotal = v.cashMtdFromBase + v.cashFromBase;
 
   const mnpMtd = v.mnpDaily + v.mnpMtdYesterday;
   const mnpMtdTarget = v.mnpTarget * day;
@@ -209,7 +223,7 @@ Cash Service (${area.cashMonthly})
 Daily Target: ${v.cashTarget}
 Daily Ach: ${v.cashDaily}
 • From Base: ${v.cashFromBase}
-• MTD From Base: ${v.cashMtdFromBase}
+• MTD From Base: ${cashMtdFromBaseTotal}
 MTD Target: ${cashMtdTarget}
 MTD Ach: ${cashMtd}
 RE: ${pct(cashMtd, cashMtdTarget)}
@@ -407,6 +421,39 @@ function EditorGroup({ title, single, children }) {
   );
 }
 
+// ─── Date + Apply MTD combined section ────────────────────────────────────────
+function DateWithApply({ reportDate, setReportDate, onApplyMtd, canApply, showPrompt, onConfirm, onCancel }) {
+  return (
+    <Section title="Report Date" single>
+      <DateField
+        label="Date"
+        id="reportDateField"
+        value={reportDate}
+        onChange={setReportDate}
+      />
+      {canApply && (
+        <div style={{ marginTop: 12 }}>
+          {!showPrompt ? (
+            <button className="apply-mtd-inline-btn" onClick={onApplyMtd}>
+              <IconApply /> Apply Last Saved MTD?
+            </button>
+          ) : (
+            <div className="apply-mtd-prompt">
+              <div className="apply-mtd-prompt-text">
+                Apply the Last MTD Ach you saved?
+              </div>
+              <div className="apply-mtd-prompt-actions">
+                <button className="apply-yes-btn" onClick={onConfirm}>Yes, Apply</button>
+                <button className="apply-no-btn" onClick={onCancel}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ─── Logo SVG ─────────────────────────────────────────────────────────────────
 function Logo() {
   return (
@@ -435,6 +482,12 @@ function IconBack() {
 function IconReset() {
   return <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
 }
+function IconSave() {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>;
+}
+function IconApply() {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+}
 
 // ─── Main generator page ──────────────────────────────────────────────────────
 function GeneratorPage({ onNav }) {
@@ -445,6 +498,9 @@ function GeneratorPage({ onNav }) {
   const [shortCopied, setShortCopied] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reportDate, setReportDate] = useState(todayInputValue());
+  const [savedMtd, setSavedMtd] = useState(loadSavedMtd);
+  const [mtdToast, setMtdToast] = useState("");
+  const [showApplyPrompt, setShowApplyPrompt] = useState(false);
   const sliderRef = useRef(null);
   const tabGroupRef = useRef(null);
 
@@ -495,7 +551,7 @@ function GeneratorPage({ onNav }) {
   const [closing, setClosing] = useState({ reviewedBy: template.closing?.reviewedBy ?? "" });
   const setClosingF = (k, v) => setClosing(p => ({ ...p, [k]: v }));
 
-  // Schedule live state
+  // Schedule state
   const getNextDayTemplate = (dateStr) => {
     const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
     const next = new Date(base);
@@ -505,14 +561,19 @@ function GeneratorPage({ onNav }) {
   const [schedAm, setSchedAm] = useState(() => getNextDayTemplate(todayInputValue()).am);
   const [schedPm, setSchedPm] = useState(() => getNextDayTemplate(todayInputValue()).pm);
 
-  // Sync schedule when report date changes
   useEffect(() => {
     const nd = getNextDayTemplate(reportDate);
     setSchedAm(nd.am);
     setSchedPm(nd.pm);
   }, [reportDate, template]);
 
-  const selectTab = (t, idx) => { setTab(t); setOutput(""); setShortOutput(""); moveSlider(idx, 5); };
+  const selectTab = (t, idx) => {
+    setTab(t);
+    setOutput("");
+    setShortOutput("");
+    setShowApplyPrompt(false);
+    moveSlider(idx, 5);
+  };
 
   const generate = () => {
     const dateObj = new Date(reportDate + "T00:00:00");
@@ -539,6 +600,7 @@ function GeneratorPage({ onNav }) {
     setOutput("");
     setShortOutput("");
     setReportDate(todayInputValue());
+    setShowApplyPrompt(false);
     if (tab === "am") setAm({ voiceCommit: template.am.voiceCommit, voiceAch: 0, emeraldCommit: template.am.emeraldCommit, emeraldAch: 0, primo: 0, cashCommit: template.am.cashCommit, cashRefund: 0, cashAch: 0, cashFromBase: 0, cashMtdFromBase: 0, connect: 0, mnp: 0 });
     else if (tab === "pm") setPm({ voiceTarget: template.pm.voiceTarget, voiceDaily: 0, voiceMtdYesterday: 0, postTarget: template.pm.postTarget, postDaily: 0, emerald: 0, primoPost: 0, postMtdYesterday: 0, connTarget: template.pm.connTarget, connDaily: 0, ehome: 0, adsl: 0, connMtdYesterday: 0, cashTarget: template.pm.cashTarget, cashRefund: 0, cashDaily: 0, cashMtdYesterday: 0, cashFromBase: 0, cashMtdFromBase: 0, mnpTarget: template.pm.mnpTarget, mnpDaily: 0, mnpMtdYesterday: 0, trx: 0 });
     else if (tab === "area") setArea({
@@ -579,6 +641,72 @@ function GeneratorPage({ onNav }) {
     window.open("https://wa.me/?text=" + encodeURIComponent(shortOutput), "_blank");
   };
 
+  // ─── MTD save/apply handlers ───────────────────────────────────────────────
+  const flashMtdToast = (msg) => {
+    setMtdToast(msg);
+    setTimeout(() => setMtdToast(""), 2000);
+  };
+
+  const MTD_FIELDS = {
+    am: ["voiceAch", "emeraldAch", "cashAch", "cashMtdFromBase", "connect", "mnp"],
+    pm: [
+      "voiceMtdYesterday", "postMtdYesterday", "connMtdYesterday",
+      "cashMtdYesterday", "cashMtdFromBase", "mnpMtdYesterday", "trx"
+    ],
+    area: [
+      "voiceMtdYesterday", "voiceMtdDr", "postMtdYesterday", "connMtdYesterday",
+      "adslMtdYesterday", "cashMtdYesterday", "cashMtdFromBase", "mnpMtdYesterday"
+    ]
+  };
+
+  const saveMtd = () => {
+    const fields = MTD_FIELDS[tab];
+    if (!fields) return;
+    const source = tab === "am" ? am : tab === "pm" ? pm : area;
+    const snapshot = {};
+    fields.forEach(k => { if (source[k] !== undefined) snapshot[k] = source[k]; });
+
+    // Special case: accumulate "From Base" into MTD From Base for next day
+    if (tab === "pm" || tab === "area") {
+      const todayMtdFromBase = (source.cashMtdFromBase || 0) + (source.cashFromBase || 0);
+      snapshot.cashMtdFromBase = todayMtdFromBase;
+      // Don't carry cashFromBase into next day's snapshot (it's a daily-only value)
+      delete snapshot.cashFromBase;
+    }
+
+    const next = { ...savedMtd, [tab]: snapshot };
+    saveSavedMtd(next);
+    setSavedMtd(next);
+    flashMtdToast(`MTD saved for ${tab.toUpperCase()}`);
+  };
+
+  const requestApplyMtd = () => {
+    const snapshot = savedMtd[tab];
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      return flashMtdToast("No saved MTD for this tab");
+    }
+    setShowApplyPrompt(true);
+  };
+
+  const confirmApplyMtd = () => {
+    const snapshot = savedMtd[tab];
+    if (!snapshot) return;
+    if (tab === "am") setAm(p => ({ ...p, ...snapshot }));
+    else if (tab === "pm") setPm(p => ({ ...p, ...snapshot }));
+    else if (tab === "area") setArea(p => ({ ...p, ...snapshot }));
+    setShowApplyPrompt(false);
+    flashMtdToast(`MTD applied to ${tab.toUpperCase()}`);
+  };
+
+  const cancelApplyMtd = () => setShowApplyPrompt(false);
+
+  const clearMtd = () => {
+    const next = { ...savedMtd, [tab]: {} };
+    saveSavedMtd(next);
+    setSavedMtd(next);
+    flashMtdToast("Saved MTD cleared");
+  };
+
   return (
     <>
       <div className="bg-orbs">
@@ -610,9 +738,15 @@ function GeneratorPage({ onNav }) {
           <div className="inputs-area" key={tab}>
             {tab === "am" && (
               <>
-                <Section title="Report Date" single>
-                  <DateField label="Date" id="reportDateAm" value={reportDate} onChange={setReportDate} />
-                </Section>
+                <DateWithApply
+                  reportDate={reportDate}
+                  setReportDate={setReportDate}
+                  onApplyMtd={requestApplyMtd}
+                  canApply={true}
+                  showPrompt={showApplyPrompt}
+                  onConfirm={confirmApplyMtd}
+                  onCancel={cancelApplyMtd}
+                />
                 <Section title="Voice">
                   <TargetField label="Voice Commitment" id="voiceCommit" value={am.voiceCommit} onChange={v => setAmF("voiceCommit", v)} />
                   <NumField label="Voice Achievement" id="voiceAch" value={am.voiceAch} onChange={v => setAmF("voiceAch", v)} />
@@ -638,9 +772,15 @@ function GeneratorPage({ onNav }) {
 
             {tab === "pm" && (
               <>
-                <Section title="Report Date" single>
-                  <DateField label="Date" id="reportDatePm" value={reportDate} onChange={setReportDate} />
-                </Section>
+                <DateWithApply
+                  reportDate={reportDate}
+                  setReportDate={setReportDate}
+                  onApplyMtd={requestApplyMtd}
+                  canApply={true}
+                  showPrompt={showApplyPrompt}
+                  onConfirm={confirmApplyMtd}
+                  onCancel={cancelApplyMtd}
+                />
                 <Section title="Voice Lines">
                   <TargetField label="Daily Target" id="voiceTarget" value={pm.voiceTarget} onChange={v => setPmF("voiceTarget", v)} />
                   <NumField label="Daily Ach" id="voiceDaily" value={pm.voiceDaily} onChange={v => setPmF("voiceDaily", v)} />
@@ -681,9 +821,15 @@ function GeneratorPage({ onNav }) {
 
             {tab === "area" && (
               <>
-                <Section title="Report Date" single>
-                  <DateField label="Date" id="reportDateArea" value={reportDate} onChange={setReportDate} />
-                </Section>
+                <DateWithApply
+                  reportDate={reportDate}
+                  setReportDate={setReportDate}
+                  onApplyMtd={requestApplyMtd}
+                  canApply={true}
+                  showPrompt={showApplyPrompt}
+                  onConfirm={confirmApplyMtd}
+                  onCancel={cancelApplyMtd}
+                />
 
                 <Section title="Voice Lines">
                   <TargetField label="Daily Target" id="aVoiceTarget" value={area.voiceTarget} onChange={v => setAreaF("voiceTarget", v)} />
@@ -745,9 +891,15 @@ function GeneratorPage({ onNav }) {
               const schedData = template.schedule?.[nextDay] ?? { am: "", pm: "" };
               return (
                 <>
-                  <Section title="Report Date" single>
-                    <DateField label="Date" id="reportDateSchedule" value={reportDate} onChange={setReportDate} />
-                  </Section>
+                  <DateWithApply
+                    reportDate={reportDate}
+                    setReportDate={setReportDate}
+                    onApplyMtd={requestApplyMtd}
+                    canApply={true}
+                    showPrompt={showApplyPrompt}
+                    onConfirm={confirmApplyMtd}
+                    onCancel={cancelApplyMtd}
+                  />
                   <Section title={`Next Day Schedule — ${nextDay} ${nextMonth}`} single>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <TextAreaField
@@ -786,6 +938,18 @@ function GeneratorPage({ onNav }) {
             </button>
           </div>
 
+          {/* Save MTD row — appears only on AM / PM / Area */}
+          {(tab === "am" || tab === "pm" || tab === "area") && (
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="mtd-action-btn" onClick={saveMtd}>
+                <IconSave /> Save Current MTD for Next Time
+              </button>
+              <button className="mtd-action-btn mtd-clear-btn" onClick={clearMtd}>
+                ✕ Clear
+              </button>
+            </div>
+          )}
+
           {output && (
             <div className="output-wrap">
               <div className="output-header">
@@ -823,6 +987,11 @@ function GeneratorPage({ onNav }) {
       <div className={`toast${copied || shortCopied ? " show" : ""}`}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Copied to clipboard
+      </div>
+
+      <div className={`toast${mtdToast ? " show" : ""}`} style={{ bottom: 90 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        {mtdToast}
       </div>
     </>
   );
@@ -1060,7 +1229,7 @@ function TemplatePage({ onNav }) {
   );
 }
 
-
+// ─── App router ───────────────────────────────────────────────────────────────
 function App() {
   const [page, setPage] = useState("home");
   if (page === "template") return <TemplatePage onNav={setPage} />;
