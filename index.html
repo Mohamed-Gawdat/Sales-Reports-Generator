@@ -647,31 +647,41 @@ function GeneratorPage({ onNav }) {
     setTimeout(() => setMtdToast(""), 2000);
   };
 
-  const MTD_FIELDS = {
-    am: ["voiceAch", "emeraldAch", "cashAch", "cashMtdFromBase", "connect", "mnp"],
-    pm: [
-      "voiceMtdYesterday", "postMtdYesterday", "connMtdYesterday",
-      "cashMtdYesterday", "cashMtdFromBase", "mnpMtdYesterday", "trx"
-    ],
-    area: [
-      "voiceMtdYesterday", "voiceMtdDr", "postMtdYesterday", "connMtdYesterday",
-      "adslMtdYesterday", "cashMtdYesterday", "cashMtdFromBase", "mnpMtdYesterday"
-    ]
-  };
-
   const saveMtd = () => {
-    const fields = MTD_FIELDS[tab];
-    if (!fields) return;
-    const source = tab === "am" ? am : tab === "pm" ? pm : area;
-    const snapshot = {};
-    fields.forEach(k => { if (source[k] !== undefined) snapshot[k] = source[k]; });
+    let snapshot = {};
 
-    // Special case: accumulate "From Base" into MTD From Base for next day
-    if (tab === "pm" || tab === "area") {
-      const todayMtdFromBase = (source.cashMtdFromBase || 0) + (source.cashFromBase || 0);
-      snapshot.cashMtdFromBase = todayMtdFromBase;
-      // Don't carry cashFromBase into next day's snapshot (it's a daily-only value)
-      delete snapshot.cashFromBase;
+    if (tab === "pm") {
+      snapshot = {
+        voiceMtdYesterday: pm.voiceDaily + pm.voiceMtdYesterday,
+        postMtdYesterday: pm.postDaily + pm.postMtdYesterday,
+        connMtdYesterday: pm.connDaily + pm.connMtdYesterday,
+        cashMtdYesterday: pm.cashDaily + pm.cashMtdYesterday,
+        cashMtdFromBase: (pm.cashMtdFromBase || 0) + (pm.cashFromBase || 0),
+        mnpMtdYesterday: pm.mnpDaily + pm.mnpMtdYesterday,
+        trx: pm.trx
+      };
+    } else if (tab === "area") {
+      snapshot = {
+        voiceMtdYesterday: area.voiceDaily + area.voiceMtdYesterday,
+        voiceMtdDr: (area.voiceDr || 0) + (area.voiceMtdDr || 0),
+        postMtdYesterday: area.postDaily + area.postMtdYesterday,
+        connMtdYesterday: area.connDaily + area.connMtdYesterday,
+        adslMtdYesterday: area.adslDaily + area.adslMtdYesterday,
+        cashMtdYesterday: area.cashDaily + area.cashMtdYesterday,
+        cashMtdFromBase: (area.cashMtdFromBase || 0) + (area.cashFromBase || 0),
+        mnpMtdYesterday: area.mnpDaily + area.mnpMtdYesterday
+      };
+    } else if (tab === "am") {
+      snapshot = {
+        voiceAch: am.voiceAch,
+        emeraldAch: am.emeraldAch,
+        cashAch: am.cashAch,
+        cashMtdFromBase: (am.cashMtdFromBase || 0) + (am.cashFromBase || 0),
+        connect: am.connect,
+        mnp: am.mnp
+      };
+    } else {
+      return;
     }
 
     const next = { ...savedMtd, [tab]: snapshot };
